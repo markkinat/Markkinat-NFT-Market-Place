@@ -8,7 +8,9 @@ contract CollectionNFT is ERC721URIStorage, Ownable {
     string private decription;
     string private baseUri;
     mapping (address => uint256) private minterTokenId;
-
+    mapping (address owner => uint256[] tokenId) public userAssetsList; 
+    mapping (address => mapping (uint256 => Asset)) public userAssets;
+    
     struct ListAsset {
         address _owner;
         address firstCreator;
@@ -31,6 +33,11 @@ contract CollectionNFT is ERC721URIStorage, Ownable {
     function mint( address _minter ) external {
         uint256 _tokenId = minterTokenId[_minter];
         _mint(_minter, ++_tokenId);
+        userAssetsList[_minter].push(_tokenId);
+        Asset storage asset = userAssets[_minter][_tokenId];
+        asset._creator= _minter;
+        asset._newOwner = _minter;
+        asset.desc = "";
     }
 
     function getContractBalance() external onlyOwner view returns(uint256 _contractBalance){
