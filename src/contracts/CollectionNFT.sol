@@ -20,7 +20,7 @@ contract CollectionNFT is ERC721URIStorage, Ownable {
     struct Asset{
         address _creator;
         address _newOwner;
-        
+        string desc;
     }
 
     constructor(string memory name, string memory symbol, string memory desc, string memory uri, address _owner) ERC721(name, symbol) Ownable(_owner) {
@@ -37,9 +37,12 @@ contract CollectionNFT is ERC721URIStorage, Ownable {
         _contractBalance = address(this).balance;
     }
 
+    function listAsset() external payable {
+
+    }
 
 
-    function sellAsset(uint _tokenId, address _newOwner) external {
+    function buyAsset(uint _tokenId, address _newOwner) external payable {
 
     }
 }
