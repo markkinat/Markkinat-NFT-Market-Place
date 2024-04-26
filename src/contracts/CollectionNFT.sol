@@ -10,7 +10,8 @@ contract CollectionNFT is ERC721URIStorage, Ownable {
     mapping (address => uint256) private minterTokenId;
     mapping (address owner => uint256[] tokenId) public userAssetsList; 
     mapping (address => mapping (uint256 => Asset)) public userAssets;
-    
+    mapping (address => mapping (uint256 => ListAsset)) public userListedAssets;
+
     struct ListAsset {
         address _owner;
         address firstCreator;
@@ -31,9 +32,8 @@ contract CollectionNFT is ERC721URIStorage, Ownable {
     }
 
     function mint( address _minter ) external {
-        uint256 _tokenId = minterTokenId[_minter];
-        _mint(_minter, ++_tokenId);
-        userAssetsList[_minter].push(_tokenId);
+        uint256 _tokenId = ++minterTokenId[_minter];
+        _mint(_minter, _tokenId);
         Asset storage asset = userAssets[_minter][_tokenId];
         asset._creator= _minter;
         asset._newOwner = _minter;
@@ -44,7 +44,18 @@ contract CollectionNFT is ERC721URIStorage, Ownable {
         _contractBalance = address(this).balance;
     }
 
-    function listAsset() external payable {
+    function listAsset(uint _amount, address _owner, uint256 _tokenId) external {
+        Asset memory asset = userAssets[_owner][_tokenId];
+        require(asset._creator != address(0), "Does not own this asset");
+        userAssetsList[_owner].push(_tokenId);
+        ListAsset storage listedAsset = userListedAssets[_owner][_tokenId];
+        listedAsset._owner = _owner;
+        listedAsset.firstCreator = asset._creator;
+        listedAsset.listedDate = block.timestamp;
+        listedAsset.price = _amount * (1 ether);
+    }
+
+    function cancelListing() external {
 
     }
 
