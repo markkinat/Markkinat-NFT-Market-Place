@@ -10,6 +10,5 @@ contract MarkkinatMarketPlace {
     constructor(address nftFactory) {
         iMarkkinatFactory = IMarkkinatNFTFactory(nftFactory);
     }
-
-
+    
 }
