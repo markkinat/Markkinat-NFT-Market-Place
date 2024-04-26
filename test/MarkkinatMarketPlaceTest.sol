@@ -6,6 +6,7 @@ import {MarkkinatMarketPlace} from "src/contracts/MarkkinatMarketPlace.sol";
 
 contract MarkkinatMarketPlaceTest is Test {
     MarkkinatMarketPlace private marketPlace;
+
     function setUp() external {
         // marketPlace = new MarkkinatMarketPlace();
     }
