@@ -14,9 +14,12 @@ contract CollectionNFT is ERC721URIStorage, Ownable {
         baseUri = uri;
     }
 
-
     function mint( address _minter ) external {
         uint256 _tokenId = minterTokenId[_minter];
         _mint(_minter, ++_tokenId);
+    }
+
+    function getContractBalance() external onlyOwner view returns(uint256 _contractBalance){
+        _contractBalance = address(this).balance;
     }
 }
