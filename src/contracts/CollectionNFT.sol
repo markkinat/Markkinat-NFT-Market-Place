@@ -14,27 +14,29 @@ contract CollectionNFT is ERC721URIStorage, Ownable {
     uint256 public defaultAssetAmount = 0.3 ether;
     uint8 public rate_;
     uint8 public royaltyRate;
-    address private protocol;
+    address payable private protocol;
+    uint8 public protocolRate;
 
     Asset[] public collectionListedAssets;
 
     struct Asset {
-        address _creator;
-        address _newOwner;
+        address payable _creator;
+        address payable _newOwner;
         string desc;
         uint256 price;
         uint256 listedDate;
         bool listed;
         uint256 tokenId;
+        uint soldTime;
     }
 
     constructor(
-        address _protocol,
+        address payable _protocol,
         string memory name,
         string memory symbol,
         string memory desc,
         string memory uri,
-        address _owner
+        address payable _owner
     ) ERC721(name, symbol) Ownable(_owner) {
         decription = desc;
         baseUri = uri;
@@ -46,7 +48,7 @@ contract CollectionNFT is ERC721URIStorage, Ownable {
         _;
     }
 
-    function mint(address _minter, string calldata desc) external {
+    function mint(address payable _minter, string calldata desc) external {
         uint256 _tokenId = ++minterTokenId[_minter];
         Asset storage asset = userAssets[_minter][_tokenId];
         require(asset._newOwner == address(0), "Something gone wrong");
@@ -62,24 +64,27 @@ contract CollectionNFT is ERC721URIStorage, Ownable {
         _contractBalance = address(this).balance;
     }
 
-    function listAsset(uint256 _amount, address _owner, uint256 _tokenId) external {
+    function listAsset(uint256 _amount, address payable _owner, uint256 _tokenId) external {
         Asset storage asset = userAssets[_owner][_tokenId];
+        require(!asset.listed, "Asset already listed");
         require(asset._creator != address(0), "Does not own this asset");
-        require(asset._newOwner != _owner, "Does not own this asset to this address");
+        require(asset._newOwner == _owner, "Does not own this asset to this address");
         asset.listedDate = block.timestamp;
         asset.listed = true;
         asset.price = _amount * (1 ether);
         userAssetsList[_owner].push(_tokenId);
         collectionListedAssets.push(asset);
-        // _approve(address(this), _tokenId, _owner);
+        _approve(address(this), _tokenId, _owner);
     }
 
-    function cancelListing(uint256 _tokenId, address _owner) external {
+    function cancelListing(uint256 _tokenId, address _owner) public {
         Asset storage asset = userAssets[_owner][_tokenId];
         require(asset.listed, "Asset Not listed");
         (bool isProofed, uint256 _index) = checker(_owner, _tokenId);
         require(isProofed, "Not owner by this user");
+
         asset.listed = false;
+        _approve(address(0), _tokenId, _owner);
         Asset memory lastAsset = collectionListedAssets[collectionListedAssets.length - 1];
         collectionListedAssets[_index] = lastAsset;
         collectionListedAssets.pop();
@@ -99,14 +104,36 @@ contract CollectionNFT is ERC721URIStorage, Ownable {
     }
 
     function changeRoyaltyRate(uint8 _newRate) external onlyFactory {
-
+        royaltyRate = _newRate;
     }
 
-    function buyAsset(uint256 _amount, address _newOwner, uint256 index) external payable {
+    function buyAsset(uint256 _amount, address payable _newOwner, uint256 index) external payable {
+        require(_amount <= _newOwner.balance, "Not enough balance to make purchase");
         Asset storage asset = collectionListedAssets[index];
         require(asset.listed, "Asset not listed");
         require(asset.price <= _amount, "Did not reach the amout specified for sales");
 
 
+        uint protocolRate_ = (_amount * protocolRate) / 100;
+        uint collRate_ = (_amount * rate_) / 100;
+        uint royalRate = (_amount * royaltyRate) / 100;
+
+        uint salesRemains = _amount - protocolRate_ - collRate_ - royalRate;
+
+        address previousOwner = asset._newOwner;
+
+        cancelListing(asset.tokenId, previousOwner);
+
+        asset._newOwner = _newOwner;
+        asset.listed = false;
+        asset.listedDate = 0;
+        asset.soldTime = ++asset.soldTime;
+
+        (bool s, ) = previousOwner.call{value : salesRemains}("");
+
+        (bool y, ) = asset._creator.call{value: royalRate}("");
+        (bool z, ) = address(this).call{value: collRate_}("");
+
+        require(s && y && z, "");
     }
 }
