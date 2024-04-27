@@ -21,10 +21,8 @@ contract MarkkinatMarketPlace {
     mapping(uint256 => mapping(address => bool)) private reservedFor;
     mapping(uint256 => mapping(address => uint256)) private reservedForTokenId;
 
-    mapping(uint256 => mapping(address => bool))
-        private approvedCurrencyForListing;
-    mapping(uint256 => mapping(address => uint256))
-        private approvedCurrencyForAmount;
+    mapping(uint256 => mapping(address => bool)) private approvedCurrencyForListing;
+    mapping(uint256 => mapping(address => uint256)) private approvedCurrencyForAmount;
 
     // mapping(uint256 => Auction) public auctions;
     // mapping(uint256 => Listing) public listings;
@@ -120,18 +118,20 @@ contract MarkkinatMarketPlace {
 
     constructor() {}
 
-    function createAuction(
-        AuctionParameters memory params
-    ) external returns (uint256 auctionId) {
+    modifier isAuctionExpired(uint256 auctionId) {
+        if (allAuctions[auctionId].endTimestamp >= block.timestamp) {
+            revert LibMarketPlaceErrors.AuctionEnded();
+        }
+        _;
+    }
+
+    function createAuction(AuctionParameters memory params) external returns (uint256 auctionId) {
         // wea re taking only erc 721 for now
         if (params.tokenType != TokenType.ERC721) {
             revert LibMarketPlaceErrors.InvalidCategory();
         }
 
-        if (
-            params.startTimestamp > block.timestamp ||
-            params.startTimestamp >= params.endTimestamp
-        ) {
+        if (params.startTimestamp > block.timestamp || params.startTimestamp >= params.endTimestamp) {
             revert LibMarketPlaceErrors.InvalidTime();
         }
 
@@ -180,17 +180,12 @@ contract MarkkinatMarketPlace {
         return auction.auctionId;
     }
 
-    function createListing(
-        ListingParameters memory params
-    ) external returns (uint256 listingId) {
+    function createListing(ListingParameters memory params) external returns (uint256 listingId) {
         if (params.tokenType != TokenType.ERC721) {
             revert LibMarketPlaceErrors.InvalidCategory();
         }
 
-        if (
-            params.startTimestamp > block.timestamp ||
-            params.startTimestamp >= params.endTimestamp
-        ) {
+        if (params.startTimestamp > block.timestamp || params.startTimestamp >= params.endTimestamp) {
             revert LibMarketPlaceErrors.InvalidTime();
         }
 
@@ -232,14 +227,8 @@ contract MarkkinatMarketPlace {
         return listing.listingId;
     }
 
-    function updateListing(
-        uint256 listingId,
-        ListingParameters memory params
-    ) external {
-        if (
-            params.startTimestamp > block.timestamp ||
-            params.startTimestamp >= params.endTimestamp
-        ) {
+    function updateListing(uint256 listingId, ListingParameters memory params) external {
+        if (params.startTimestamp > block.timestamp || params.startTimestamp >= params.endTimestamp) {
             revert LibMarketPlaceErrors.InvalidTime();
         }
         // get listing
@@ -279,11 +268,7 @@ contract MarkkinatMarketPlace {
         // emit event
     }
 
-    function approveCurrencyForListing(
-        uint256 listingId,
-        address currency,
-        uint256 priceInCurrency
-    ) external {
+    function approveCurrencyForListing(uint256 listingId, address currency, uint256 priceInCurrency) external {
         Listing storage listing = allListings[listingId];
 
         if (listing.listingCreator != msg.sender) {
@@ -295,10 +280,7 @@ contract MarkkinatMarketPlace {
         }
 
         //if listing is cancelled or completed
-        if (
-            listing.status == Status.CANCELLED ||
-            listing.status == Status.COMPLETED
-        ) {
+        if (listing.status == Status.CANCELLED || listing.status == Status.COMPLETED) {
             revert LibMarketPlaceErrors.CantUpdate();
         }
 
@@ -313,26 +295,18 @@ contract MarkkinatMarketPlace {
         return allListings.length;
     }
 
-    function getAllListings()
-        external
-        view
-        returns (Listing[] memory listings)
-    {
+    function getAllListings() external view returns (Listing[] memory listings) {
         return allListings;
     }
 
-    function getListing(
-        uint256 listingId
-    ) external view returns (Listing memory listing) {
+    function getListing(uint256 listingId) external view returns (Listing memory listing) {
         return allListings[listingId];
     }
 
-    function buyFromListing(
-        uint256 listingId,
-        address buyFor,
-        address currency,
-        uint256 expectedTotalPrice
-    ) external payable {
+    function buyFromListing(uint256 listingId, address buyFor, address currency, uint256 expectedTotalPrice)
+        external
+        payable
+    {
         Listing storage listing = allListings[listingId];
 
         if (listing.status != Status.CREATED) {
@@ -348,26 +322,19 @@ contract MarkkinatMarketPlace {
             }
         }
 
-        bool isApprovedCurrency = approvedCurrencyForListing[listingId][
-            currency
-        ];
-        uint256 approvedCurrencyAmount = approvedCurrencyForAmount[listingId][
-            currency
-        ];
+        bool isApprovedCurrency = approvedCurrencyForListing[listingId][currency];
+        uint256 approvedCurrencyAmount = approvedCurrencyForAmount[listingId][currency];
 
         if (listing.currency != currency || !isApprovedCurrency) {
             revert LibMarketPlaceErrors.InvalidCurrency();
         }
 
-        if (
-            listing.price != expectedTotalPrice ||
-            listing.price != approvedCurrencyAmount
-        ) {
+        if (listing.price != expectedTotalPrice || listing.price != approvedCurrencyAmount) {
             revert LibMarketPlaceErrors.IncorrectPrice();
         }
 
         address currencyToBeUsed = isApprovedCurrency ? currency : listing.currency;
-        uint256 priceToBeUsed = approvedCurrencyAmount > 0 ? expectedTotalPrice: listing.price;
+        uint256 priceToBeUsed = approvedCurrencyAmount > 0 ? expectedTotalPrice : listing.price;
 
         //TODO calculate percentage and remove it.
 
@@ -377,11 +344,7 @@ contract MarkkinatMarketPlace {
 
         // transfer the nft
         IERC721 nftCollection = IERC721(listing.assetContract);
-        nftCollection.safeTransferFrom(
-            listing.listingCreator,
-            buyFor,
-            listing.tokenId
-        );
+        nftCollection.safeTransferFrom(listing.listingCreator, buyFor, listing.tokenId);
 
         // update the listing status
         listing.status = Status.COMPLETED;
@@ -434,9 +397,7 @@ contract MarkkinatMarketPlace {
 
     // function getAllValidOffer(uint256 startId, uint256 endId) external view returns (Offer[] memory offers);
 
-    function isContract(
-        address _addr
-    ) internal view returns (bool addressCheck) {
+    function isContract(address _addr) internal view returns (bool addressCheck) {
         uint256 size;
         assembly {
             size := extcodesize(_addr)

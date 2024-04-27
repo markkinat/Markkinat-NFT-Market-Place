@@ -21,4 +21,6 @@ library LibMarketPlaceErrors {
     error NotReservedAddress();
     error InvalidCurrency();
     error IncorrectPrice();
+    error AuctionEnded();
+    error AuctionNotStarted();
 }
