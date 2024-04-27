@@ -136,4 +136,9 @@ contract CollectionNFT is ERC721URIStorage, Ownable {
 
         require(s && y && z, "");
     }
+
+    function withdrawContractFund() external onlyOwner{
+        uint bal = address(this).balance;
+        if (bal > 0) owner().call{value: bal}("");
+    }
 }
