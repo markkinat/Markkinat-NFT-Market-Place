@@ -13,4 +13,6 @@ library LibMarketPlaceErrors {
     error MustBeContract();
     error MarketPlaceNotApproved();
     error CantUpdateIfStatusNotCreated();
+    error CantCancelCompletedListing();
+    error ListingAlreadyCompleted();
 }
