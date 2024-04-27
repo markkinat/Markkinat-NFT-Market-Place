@@ -13,5 +13,3 @@ library LibMarketPlaceErrors {
     error MustBeContract();
     error MarketPlaceNotApproved();
 }
-
-

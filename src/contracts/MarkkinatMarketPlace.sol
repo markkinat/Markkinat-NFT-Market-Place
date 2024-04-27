@@ -15,6 +15,7 @@ contract MarkkinatMarketPlace {
     address teamAddress;
 
     Auction[] public allAuctions;
+
     struct ListingParameters {
         address assetContract;
         uint256 tokenId;
@@ -89,6 +90,7 @@ contract MarkkinatMarketPlace {
         uint256 totalPrice;
         uint256 expirationTimestamp;
     }
+
     struct Offer {
         uint256 offerId;
         address offeror;
@@ -104,26 +106,26 @@ contract MarkkinatMarketPlace {
 
     constructor() {}
 
-    function createAuction(
-        AuctionParameters memory params
-    ) external returns (uint256 auctionId) {
+    function createAuction(AuctionParameters memory params) external returns (uint256 auctionId) {
         // wea re taking only erc 721 for now
-        if (params.tokenType != TokenType.ERC721)
+        if (params.tokenType != TokenType.ERC721) {
             revert LibMarketPlaceErrors.InvalidCategory();
+        }
 
-        if (
-            params.startTimestamp > block.timestamp ||
-            params.startTimestamp >= params.endTimestamp
-        ) revert LibMarketPlaceErrors.InvalidTime();
+        if (params.startTimestamp > block.timestamp || params.startTimestamp >= params.endTimestamp) {
+            revert LibMarketPlaceErrors.InvalidTime();
+        }
 
-        if (!isContract(params.assetContract))
+        if (!isContract(params.assetContract)) {
             revert LibMarketPlaceErrors.MustBeContract();
+        }
 
         IERC721 nftCollection = IERC721(params.assetContract);
 
         // check onwner of nft
-        if (nftCollection.ownerOf(params.tokenId))
+        if (nftCollection.ownerOf(params.tokenId)) {
             revert LibMarketPlaceErrors.NotOwner();
+        }
 
         // check if owner has approved the marketplace to transfer the NFT
         require(
@@ -131,8 +133,9 @@ contract MarkkinatMarketPlace {
             "AuctionMarketPlace: not approved to transfer NFT"
         );
 
-        if (!nftCollection.getApproved(params.tokenId) == address(this))
+        if (!nftCollection.getApproved(params.tokenId) == address(this)) {
             revert LibMarketPlaceErrors.MarketPlaceNotApproved();
+        }
 
         nftCollection.transferFrom(msg.sender, address(this), params.tokenId);
 
@@ -160,22 +163,13 @@ contract MarkkinatMarketPlace {
         return auction.auctionId;
     }
 
-    function createListing(
-        ListingParameters memory params
-    ) external returns (uint256 listingId);
+    function createListing(ListingParameters memory params) external returns (uint256 listingId);
 
-    function updateListing(
-        uint256 listingId,
-        ListingParameters memory params
-    ) external;
+    function updateListing(uint256 listingId, ListingParameters memory params) external;
 
     function cancelListing(uint256 listingId) external;
 
-    function approveCurrencyForListing(
-        uint256 listingId,
-        address currency,
-        uint256 pricePerTokenInCurrency
-    ) external;
+    function approveCurrencyForListing(uint256 listingId, address currency, uint256 pricePerTokenInCurrency) external;
 
     function buyFromListing(
         uint256 listingId,
@@ -187,69 +181,41 @@ contract MarkkinatMarketPlace {
 
     function totalListings() external view returns (uint256);
 
-    function getAllListings(
-        uint256 startId,
-        uint256 endId
-    ) external view returns (Listing[] memory listings);
+    function getAllListings(uint256 startId, uint256 endId) external view returns (Listing[] memory listings);
 
-    function getAllValidListings(
-        uint256 startId,
-        uint256 endId
-    ) external view returns (Listing[] memory listings); //active listings
+    function getAllValidListings(uint256 startId, uint256 endId) external view returns (Listing[] memory listings); //active listings
 
-    function getListing(
-        uint256 listingId
-    ) external view returns (Listing memory listing);
+    function getListing(uint256 listingId) external view returns (Listing memory listing);
 
     //Auction
-    function createAuction(
-        AuctionParameters memory params
-    ) external returns (uint256 auctionId);
+    function createAuction(AuctionParameters memory params) external returns (uint256 auctionId);
 
     function cancelAuction(uint256 auctionId) external;
 
     function collectAuctionPayout(uint256 auctionId) external;
 
-    function bidInAuction(
-        uint256 auctionId,
-        uint256 bidAmount
-    ) external payable;
+    function bidInAuction(uint256 auctionId, uint256 bidAmount) external payable;
 
     function collectAuctionTokens(uint256 auctionId) external;
 
-    function isNewWinningBid(
-        uint256 auctionId,
-        uint256 bidAmount
-    ) external view returns (bool);
+    function isNewWinningBid(uint256 auctionId, uint256 bidAmount) external view returns (bool);
 
     function totalAuctions() external view returns (uint256);
 
-    function getAuction(
-        uint256 auctionId
-    ) external view returns (Auction memory auction);
+    function getAuction(uint256 auctionId) external view returns (Auction memory auction);
 
-    function getAllAuctions(
-        uint256 startId,
-        uint256 endId
-    ) external view returns (Auction[] memory auctions);
+    function getAllAuctions(uint256 startId, uint256 endId) external view returns (Auction[] memory auctions);
 
-    function getAllValidAuctions(
-        uint256 startId,
-        uint256 endId
-    ) external view returns (Auction[] memory auctions);
+    function getAllValidAuctions(uint256 startId, uint256 endId) external view returns (Auction[] memory auctions);
 
-    function getWinningBid(
-        uint256 auctionId
-    )
+    function getWinningBid(uint256 auctionId)
         external
         view
         returns (address bidder, address currency, uint256 bidAmount);
 
     function isAuctionExpired(uint256 auctionId) external view returns (bool);
 
-    function makeOffer(
-        OfferParams memory params
-    ) external returns (uint256 offerId);
+    function makeOffer(OfferParams memory params) external returns (uint256 offerId);
 
     function cancelOffer(uint256 offerId) external;
 
@@ -261,23 +227,13 @@ contract MarkkinatMarketPlace {
 
     function totalOffers() external view returns (uint256);
 
-    function getOffer(
-        uint256 offerId
-    ) external view returns (Offer memory offer);
+    function getOffer(uint256 offerId) external view returns (Offer memory offer);
 
-    function getAllOffers(
-        uint256 startId,
-        uint256 endId
-    ) external view returns (Offer[] memory offers);
+    function getAllOffers(uint256 startId, uint256 endId) external view returns (Offer[] memory offers);
 
-    function getAllValidOffer(
-        uint256 startId,
-        uint256 endId
-    ) external view returns (Offer[] memory offers);
+    function getAllValidOffer(uint256 startId, uint256 endId) external view returns (Offer[] memory offers);
 
-    function isContract(
-        address _addr
-    ) internal view returns (bool addressCheck) {
+    function isContract(address _addr) internal view returns (bool addressCheck) {
         uint256 size;
         assembly {
             size := extcodesize(_addr)
