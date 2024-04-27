@@ -15,4 +15,10 @@ library LibMarketPlaceErrors {
     error CantUpdateIfStatusNotCreated();
     error CantCancelCompletedListing();
     error ListingAlreadyCompleted();
+    error CantUpdate();
+    error StatusMustBeCreated();
+    error NotReservedTokenId();
+    error NotReservedAddress();
+    error InvalidCurrency();
+    error IncorrectPrice();
 }
