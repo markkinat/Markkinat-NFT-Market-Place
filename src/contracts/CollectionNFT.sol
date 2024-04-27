@@ -7,15 +7,17 @@ import "@openzeppelin-contracts/contracts/access/Ownable.sol";
 contract CollectionNFT is ERC721URIStorage, Ownable {
     string private decription;
     string private baseUri;
-    mapping (address => uint256) private minterTokenId;
+    mapping(address => uint256) private minterTokenId;
 
-    constructor(string memory name, string memory symbol, string memory desc, string memory uri, address _owner) ERC721(name, symbol) Ownable(_owner) {
+    constructor(string memory name, string memory symbol, string memory desc, string memory uri, address _owner)
+        ERC721(name, symbol)
+        Ownable(_owner)
+    {
         decription = desc;
         baseUri = uri;
     }
 
-
-    function mint( address _minter ) external {
+    function mint(address _minter) external {
         uint256 _tokenId = minterTokenId[_minter];
         _mint(_minter, ++_tokenId);
     }
