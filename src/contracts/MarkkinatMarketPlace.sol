@@ -9,23 +9,16 @@ import {LibMarketPlaceErrors} from "../lib/LibMarketplace.sol";
 // we have two tyoes if listing
 // 1. Direct listing & EnglishAuctions
 contract MarkkinatMarketPlace {
-    // AUCTION MARKETPLACE
     uint256 auctionIndex;
+    uint256 listingIndex;
     address daoAddress;
     address teamAddress;
 
     Auction[] public allAuctions;
+    Listing[] public allListings;
 
-    struct ListingParameters {
-        address assetContract;
-        uint256 tokenId;
-        uint256 quantity;
-        address currency;
-        uint256 pricePerToken;
-        uint128 startTimestamp;
-        uint128 endTimestamp;
-        bool reserved;
-    }
+    mapping(uint256 => mapping(address => bool)) private reservedFor;
+    mapping(uint256 => mapping(address => uint256)) private reservedForTokenId;
 
     enum TokenType {
         ERC721,
@@ -38,6 +31,18 @@ contract MarkkinatMarketPlace {
         CANCELLED
     }
 
+    struct ListingParameters {
+        address assetContract;
+        uint256 tokenId;
+        uint256 quantity;
+        address currency;
+        uint256 price;
+        uint128 startTimestamp;
+        uint128 endTimestamp;
+        bool reserved;
+        TokenType tokenType;
+    }
+
     struct Listing {
         uint256 listingId;
         address listingCreator;
@@ -45,7 +50,7 @@ contract MarkkinatMarketPlace {
         uint256 tokenId;
         // uint256 quantity;
         address currency;
-        uint256 pricePerToken;
+        uint256 price;
         uint128 startTimestamp;
         uint128 endTimestamp;
         bool reserved;
@@ -137,7 +142,7 @@ contract MarkkinatMarketPlace {
             revert LibMarketPlaceErrors.MarketPlaceNotApproved();
         }
 
-        nftCollection.transferFrom(msg.sender, address(this), params.tokenId);
+        // nftCollection.transferFrom(msg.sender, address(this), params.tokenId);
 
         address payable currentBidOwner = payable(address(0));
 
@@ -157,19 +162,70 @@ contract MarkkinatMarketPlace {
             Status: Status.CREATED
         });
 
+        auctionIndex++;
+
         // push the auction to the array
         allAuctions.push(auction);
 
         return auction.auctionId;
     }
 
-    function createListing(ListingParameters memory params) external returns (uint256 listingId);
+    function createListing(ListingParameters memory params) external returns (uint256 listingId) {
+        if (params.tokenType != TokenType.ERC721) {
+            revert LibMarketPlaceErrors.InvalidCategory();
+        }
+
+        if (params.startTimestamp > block.timestamp || params.startTimestamp >= params.endTimestamp) {
+            revert LibMarketPlaceErrors.InvalidTime();
+        }
+
+        if (!isContract(params.assetContract)) {
+            revert LibMarketPlaceErrors.MustBeContract();
+        }
+
+        IERC721 nftCollection = IERC721(params.assetContract);
+
+        // check onwner of nft
+        if (nftCollection.ownerOf(params.tokenId)) {
+            revert LibMarketPlaceErrors.NotOwner();
+        }
+
+        // check if owner has approved the marketplace to transfer the NFT
+        require(
+            nftCollection.getApproved(params.tokenId) == address(this),
+            "AuctionMarketPlace: not approved to transfer NFT"
+        );
+
+        if (!nftCollection.getApproved(params.tokenId) == address(this)) {
+            revert LibMarketPlaceErrors.MarketPlaceNotApproved();
+        }
+
+        Listing memory listing = Lsiting({
+            listingId: listingIndex,
+            listingCreator: msg.sender,
+            assetContract: params.assetContract,
+            tokenId: params.tokenId,
+            currency: params.currency,
+            price: params.price,
+            startTimestamp: params.startTimestamp,
+            endTimestamp: params.endTimestamp,
+            reserved: params.reserved,
+            TokenType: params.tokenType,
+            Status: Status.CREATED
+        });
+
+        listingIndex++;
+
+        allListings.push(listing);
+
+        return listing.listingId;
+    }
 
     function updateListing(uint256 listingId, ListingParameters memory params) external;
 
     function cancelListing(uint256 listingId) external;
 
-    function approveCurrencyForListing(uint256 listingId, address currency, uint256 pricePerTokenInCurrency) external;
+    function approveCurrencyForListing(uint256 listingId, address currency, uint256 priceInCurrency) external;
 
     function buyFromListing(
         uint256 listingId,
