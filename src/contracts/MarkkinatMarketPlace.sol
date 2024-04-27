@@ -20,6 +20,9 @@ contract MarkkinatMarketPlace {
     mapping(uint256 => mapping(address => bool)) private reservedFor;
     mapping(uint256 => mapping(address => uint256)) private reservedForTokenId;
 
+    // mapping(uint256 => Auction) public auctions;
+    // mapping(uint256 => Listing) public listings;
+
     enum TokenType {
         ERC721,
         ERC1155
@@ -111,18 +114,13 @@ contract MarkkinatMarketPlace {
 
     constructor() {}
 
-    function createAuction(
-        AuctionParameters memory params
-    ) external returns (uint256 auctionId) {
+    function createAuction(AuctionParameters memory params) external returns (uint256 auctionId) {
         // wea re taking only erc 721 for now
         if (params.tokenType != TokenType.ERC721) {
             revert LibMarketPlaceErrors.InvalidCategory();
         }
 
-        if (
-            params.startTimestamp > block.timestamp ||
-            params.startTimestamp >= params.endTimestamp
-        ) {
+        if (params.startTimestamp > block.timestamp || params.startTimestamp >= params.endTimestamp) {
             revert LibMarketPlaceErrors.InvalidTime();
         }
 
@@ -169,17 +167,12 @@ contract MarkkinatMarketPlace {
         return auction.auctionId;
     }
 
-    function createListing(
-        ListingParameters memory params
-    ) external returns (uint256 listingId) {
+    function createListing(ListingParameters memory params) external returns (uint256 listingId) {
         if (params.tokenType != TokenType.ERC721) {
             revert LibMarketPlaceErrors.InvalidCategory();
         }
 
-        if (
-            params.startTimestamp > block.timestamp ||
-            params.startTimestamp >= params.endTimestamp
-        ) {
+        if (params.startTimestamp > block.timestamp || params.startTimestamp >= params.endTimestamp) {
             revert LibMarketPlaceErrors.InvalidTime();
         }
 
@@ -197,7 +190,6 @@ contract MarkkinatMarketPlace {
         if (nftCollection.getApproved(params.tokenId) != address(this)) {
             revert LibMarketPlaceErrors.MarketPlaceNotApproved();
         }
-
 
         Listing memory listing = Listing({
             listingId: listingIndex,
@@ -220,7 +212,24 @@ contract MarkkinatMarketPlace {
         return listing.listingId;
     }
 
-    // function updateListing(uint256 listingId, ListingParameters memory params) external;
+    function updateListing(uint256 listingId, ListingParameters memory params) external {
+        if (params.startTimestamp > block.timestamp || params.startTimestamp >= params.endTimestamp) {
+            revert LibMarketPlaceErrors.InvalidTime();
+        }
+        // get listing
+        Listing storage listing = allListings[listingId];
+
+        if (listing.listingCreator != msg.sender) {
+            revert LibMarketPlaceErrors.NotOwner();
+        }
+
+        if (listing.status != Status.CREATED) {
+            revert LibMarketPlaceErrors.CantUpdateIfStatusNotCreated();
+        }
+
+        listing.currency = params.currency;
+        listing.price = params.price;
+    }
 
     // function cancelListing(uint256 listingId) external;
 
@@ -288,9 +297,7 @@ contract MarkkinatMarketPlace {
 
     // function getAllValidOffer(uint256 startId, uint256 endId) external view returns (Offer[] memory offers);
 
-    function isContract(
-        address _addr
-    ) internal view returns (bool addressCheck) {
+    function isContract(address _addr) internal view returns (bool addressCheck) {
         uint256 size;
         assembly {
             size := extcodesize(_addr)

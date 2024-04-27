@@ -12,4 +12,5 @@ library LibMarketPlaceErrors {
     error InvalidTime();
     error MustBeContract();
     error MarketPlaceNotApproved();
+    error CantUpdateIfStatusNotCreated();
 }
