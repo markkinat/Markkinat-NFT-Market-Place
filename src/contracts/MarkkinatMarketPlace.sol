@@ -42,7 +42,7 @@ contract MarkkinatMarketPlace {
         address listingCreator;
         address assetContract;
         uint256 tokenId;
-        uint256 quantity;
+        // uint256 quantity;
         address currency;
         uint256 pricePerToken;
         uint128 startTimestamp;
@@ -153,6 +153,11 @@ contract MarkkinatMarketPlace {
             TokenType: params.tokenType,
             Status: Status.CREATED
         });
+
+        // push the auction to the array
+        allAuctions.push(auction);
+
+        return auction.auctionId;
     }
 
     function createListing(
