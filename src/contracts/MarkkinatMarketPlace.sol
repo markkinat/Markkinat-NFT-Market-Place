@@ -13,7 +13,6 @@ contract MarkkinatMarketPlace {
     uint256 auctionIndex;
     uint256 listingIndex;
     address daoAddress;
-    address teamAddress;
 
     Auction[] public allAuctions;
     Listing[] public allListings;
@@ -55,7 +54,6 @@ contract MarkkinatMarketPlace {
         address listingCreator;
         address assetContract;
         uint256 tokenId;
-        // uint256 quantity;
         address currency;
         uint256 price;
         uint128 startTimestamp;
@@ -68,7 +66,6 @@ contract MarkkinatMarketPlace {
     struct AuctionParameters {
         address assetContract;
         uint256 tokenId;
-        // uint256 quantity;
         address currency;
         uint256 minimumBidAmount;
         uint256 buyoutBidAmount;
@@ -82,7 +79,6 @@ contract MarkkinatMarketPlace {
         address auctionCreator;
         address assetContract;
         uint256 tokenId;
-        // uint256 quantity;
         address currency;
         address currentBidOwner;
         uint256 currentBidPrice;
@@ -94,7 +90,9 @@ contract MarkkinatMarketPlace {
         Status status;
     }
 
-    constructor() {}
+    constructor(address daoaddress) {
+        daoAddress = daoaddress;
+    }
 
     modifier isAuctionExpired(uint256 auctionId) {
         if (allAuctions[auctionId].endTimestamp >= block.timestamp) {
@@ -104,68 +102,13 @@ contract MarkkinatMarketPlace {
     }
 
     modifier onlyAfterCompletedAuction(uint256 auctionId) {
-        require(isAuctionCompleted(auctionId), "LibMarketPlaceErrors.AuctionStillInProgress");
+        require(isAuctionCompleted(auctionId), "AuctionStillInProgress");
         _;
     }
 
     function isAuctionCompleted(uint256 auctionId) internal view returns (bool) {
         return
             allAuctions[auctionId].endTimestamp <= block.timestamp && allAuctions[auctionId].status == Status.COMPLETED;
-    }
-
-    function createAuction(AuctionParameters memory params) external returns (uint256 auctionId) {
-        // wea re taking only erc 721 for now
-        if (params.tokenType != TokenType.ERC721) {
-            revert LibMarketPlaceErrors.InvalidCategory();
-        }
-
-        if (params.startTimestamp > block.timestamp || params.startTimestamp >= params.endTimestamp) {
-            revert LibMarketPlaceErrors.InvalidTime();
-        }
-
-        if (!isContract(params.assetContract)) {
-            revert LibMarketPlaceErrors.MustBeContract();
-        }
-
-        IERC721 nftCollection = IERC721(params.assetContract);
-
-        // check onwner of nft
-        if (nftCollection.ownerOf(params.tokenId) != msg.sender) {
-            revert LibMarketPlaceErrors.NotOwner();
-        }
-
-        if (nftCollection.getApproved(params.tokenId) != address(this)) {
-            revert LibMarketPlaceErrors.MarketPlaceNotApproved();
-        }
-
-        // nftCollection.transferFrom(msg.sender, address(this), params.tokenId);
-
-        address payable currentBidOwner = payable(address(0));
-
-        Auction memory auction = Auction({
-            auctionId: auctionIndex,
-            auctionCreator: msg.sender,
-            assetContract: params.assetContract,
-            tokenId: params.tokenId,
-            currency: params.currency,
-            currentBidOwner: currentBidOwner,
-            currentBidPrice: 0,
-            minimumBidAmount: params.minimumBidAmount,
-            buyoutBidAmount: params.buyoutBidAmount,
-            startTimestamp: params.startTimestamp,
-            endTimestamp: params.endTimestamp,
-            tokenType: TokenType.ERC721,
-            status: Status.CREATED
-        });
-
-        auctionIndex++;
-
-        // push the auction to the array
-        allAuctions.push(auction);
-
-        //emit event
-
-        return auction.auctionId;
     }
 
     function createListing(ListingParameters memory params) external returns (uint256 listingId) {
@@ -191,6 +134,8 @@ contract MarkkinatMarketPlace {
         if (nftCollection.getApproved(params.tokenId) != address(this)) {
             revert LibMarketPlaceErrors.MarketPlaceNotApproved();
         }
+
+        nftCollection.transferFrom(msg.sender, address(this), params.tokenId);
 
         Listing memory listing = Listing({
             listingId: listingIndex,
@@ -222,7 +167,10 @@ contract MarkkinatMarketPlace {
         // get listing
         Listing storage listing = allListings[listingId];
 
-        if (listing.listingCreator != msg.sender) {
+        if (
+            listing.listingCreator != msg.sender
+                || getNFTCurrentOwner(listing.assetContract, listing.tokenId) != msg.sender
+        ) {
             revert LibMarketPlaceErrors.NotOwner();
         }
 
@@ -326,19 +274,78 @@ contract MarkkinatMarketPlace {
         uint256 priceToBeUsed = approvedCurrencyAmount > 0 ? expectedTotalPrice : listing.price;
 
         //TODO calculate percentage and remove it.
+        uint256 burn = calculateIncentiveBurned(priceToBeUsed);
+        uint256 dao = calculateIncentiveDAO(priceToBeUsed);
 
         // transfer the currency
         IERC20 ERC20Token = IERC20(currencyToBeUsed);
-        ERC20Token.transferFrom(msg.sender, listing.listingCreator, priceToBeUsed);
+        ERC20Token.transferFrom(msg.sender, address(this), priceToBeUsed);
+        ERC20Token.transferFrom(address(this), address(0), burn);
+        ERC20Token.transferFrom(address(this), daoAddress, dao);
 
         // transfer the nft
         IERC721 nftCollection = IERC721(listing.assetContract);
-        nftCollection.safeTransferFrom(listing.listingCreator, buyFor, listing.tokenId);
+        nftCollection.safeTransferFrom(address(this), buyFor, listing.tokenId);
 
         // update the listing status
         listing.status = Status.COMPLETED;
 
         // emit event
+    }
+
+    function createAuction(AuctionParameters memory params) external returns (uint256 auctionId) {
+        // wea re taking only erc 721 for now
+        if (params.tokenType != TokenType.ERC721) {
+            revert LibMarketPlaceErrors.InvalidCategory();
+        }
+
+        if (params.startTimestamp > block.timestamp || params.startTimestamp >= params.endTimestamp) {
+            revert LibMarketPlaceErrors.InvalidTime();
+        }
+
+        if (!isContract(params.assetContract)) {
+            revert LibMarketPlaceErrors.MustBeContract();
+        }
+
+        IERC721 nftCollection = IERC721(params.assetContract);
+
+        // check onwner of nft
+        if (nftCollection.ownerOf(params.tokenId) != msg.sender) {
+            revert LibMarketPlaceErrors.NotOwner();
+        }
+
+        if (nftCollection.getApproved(params.tokenId) != address(this)) {
+            revert LibMarketPlaceErrors.MarketPlaceNotApproved();
+        }
+
+        nftCollection.transferFrom(msg.sender, address(this), params.tokenId);
+
+        address payable currentBidOwner = payable(address(0));
+
+        Auction memory auction = Auction({
+            auctionId: auctionIndex,
+            auctionCreator: msg.sender,
+            assetContract: params.assetContract,
+            tokenId: params.tokenId,
+            currency: params.currency,
+            currentBidOwner: currentBidOwner,
+            currentBidPrice: 0,
+            minimumBidAmount: params.minimumBidAmount,
+            buyoutBidAmount: params.buyoutBidAmount,
+            startTimestamp: params.startTimestamp,
+            endTimestamp: params.endTimestamp,
+            tokenType: TokenType.ERC721,
+            status: Status.CREATED
+        });
+
+        auctionIndex++;
+
+        // push the auction to the array
+        allAuctions.push(auction);
+
+        //emit event
+
+        return auction.auctionId;
     }
 
     function bidInAuction(uint256 auctionId, uint256 bidAmount) external payable isAuctionExpired(auctionId) {
@@ -356,7 +363,13 @@ contract MarkkinatMarketPlace {
             revert LibMarketPlaceErrors.IncorrectPrice();
         }
 
+        address previousHighestBidder = auction.currentBidOwner;
+        uint256 previousHighestBid = auction.currentBidPrice;
+
         if (bidAmount >= auction.buyoutBidAmount) {
+            // update the auction status
+            auction.status = Status.COMPLETED;
+
             // transfer the currency
             IERC20 ERC20Token = IERC20(auction.currency);
             ERC20Token.transferFrom(msg.sender, address(this), bidAmount);
@@ -365,16 +378,23 @@ contract MarkkinatMarketPlace {
             IERC721 nftCollection = IERC721(auction.assetContract);
             nftCollection.safeTransferFrom(auction.auctionCreator, msg.sender, auction.tokenId);
 
-            // update the auction status
-            auction.status = Status.COMPLETED;
+            if (previousHighestBidder != address(0)) {
+                // calculate Incentive
+                uint256 incentive = calculateIncentiveOutbid(previousHighestBid);
+                ERC20Token.transferFrom(msg.sender, address(this), previousHighestBid + incentive);
+            }
 
             // emit event
         }
 
         if (bidAmount > auction.currentBidPrice) {
             // transfer the currency
-            IERC20 ERC20Token = IERC20(auction.currency);
-            ERC20Token.transferFrom(msg.sender, auction.currentBidOwner, bidAmount);
+            if (previousHighestBidder != address(0)) {
+                // calculate Incentive
+                IERC20 ERC20Token = IERC20(auction.currency);
+                uint256 incentive = calculateIncentiveOutbid(previousHighestBid);
+                ERC20Token.transferFrom(msg.sender, address(this), previousHighestBid + incentive);
+            }
 
             // update the current bid owner
             auction.currentBidOwner = msg.sender;
@@ -400,12 +420,14 @@ contract MarkkinatMarketPlace {
         }
 
         if (auction.currentBidOwner != address(0)) {
-            // transfer the currency
-            IERC20 ERC20Token = IERC20(auction.currency);
-            ERC20Token.transferFrom(address(this), auction.currentBidOwner, auction.currentBidPrice);
+            revert LibMarketPlaceErrors.AuctionStillInProgress();
         }
 
         auction.status = Status.CANCELLED;
+
+        // transfer the nft back to the owner
+        IERC721 nftCollection = IERC721(auction.assetContract);
+        nftCollection.safeTransferFrom(address(this), auction.auctionCreator, auction.tokenId);
 
         // emit event
     }
@@ -413,33 +435,31 @@ contract MarkkinatMarketPlace {
     function collectAuctionPayout(uint256 auctionId) external onlyAfterCompletedAuction(auctionId) {
         Auction storage auction = allAuctions[auctionId];
 
-        if (auction.auctionCreator != auction.currentBidOwner) {
-            revert LibMarketPlaceErrors.NotOwner();
+        if (auction.currentBidOwner == address(0)) revert LibMarketPlaceErrors.NoAuction();
+
+        // Only owner or highestBidder should claim or finalize auction
+
+        if (msg.sender != auction.currentBidOwner || msg.sender != auction.auctionCreator) {
+            revert LibMarketPlaceErrors.NotOwnerOrHighestBidder();
         }
 
-        if (auction.currentBidOwner != address(0)) {
-            auction.status = Status.COMPLETED;
-            // transfer the nft
-            IERC721 nftCollection = IERC721(auction.assetContract);
-            nftCollection.safeTransferFrom(auction.auctionCreator, auction.currentBidOwner, auction.tokenId);
-        }
+        auction.status = Status.COMPLETED;
+
+        // calculate the dues
+        (uint256 burn, uint256 dao, uint256 outbidder) = calculateDues(auction.currentBidPrice);
+
+        //calculate amount to be sent
+        uint256 amountToBeSent = auction.currentBidPrice - (burn + dao + outbidder);
+
+        // transfer the currency
+        IERC20 ERC20Token = IERC20(auction.currency);
+        ERC20Token.transferFrom(address(this), auction.auctionCreator, amountToBeSent);
+
+        // transfer the nft
+        IERC721 nftCollection = IERC721(auction.assetContract);
+        nftCollection.safeTransferFrom(address(this), msg.sender, auction.tokenId);
 
         // emit event
-    }
-
-    function collectAuctionTokens(uint256 auctionId) external onlyAfterCompletedAuction(auctionId) {
-        Auction storage auction = allAuctions[auctionId];
-
-        if (auction.auctionCreator != auction.auctionCreator) {
-            revert LibMarketPlaceErrors.NotOwner();
-        }
-
-        if (auction.currentBidOwner != address(0)) {
-            auction.status = Status.COMPLETED;
-            // transfer the token
-            IERC20 ERC20Token = IERC20(auction.currency);
-            ERC20Token.transferFrom(address(this), auction.auctionCreator, auction.currentBidPrice);
-        }
     }
 
     function isNewWinningBid(uint256 auctionId, uint256 bidAmount) external view returns (bool) {
@@ -468,11 +488,46 @@ contract MarkkinatMarketPlace {
         return (auction.currentBidOwner, auction.currency, auction.currentBidPrice);
     }
 
+    function calculateDues(uint256 bidPrice) private pure returns (uint256, uint256, uint256) {
+        uint256 burn = calculateIncentiveBurned(bidPrice);
+        uint256 dao = calculateIncentiveDAO(bidPrice);
+        uint256 outbidder = calculateIncentiveOutbid(bidPrice);
+        return (burn, dao, outbidder);
+    }
+
     function isContract(address _addr) internal view returns (bool addressCheck) {
         uint256 size;
         assembly {
             size := extcodesize(_addr)
         }
         addressCheck = (size > 0);
+    }
+
+    //Get Address of NFt owner
+    function getNFTCurrentOwner(address _nftAddress, uint256 _tokenId) private view returns (address) {
+        IERC721 nftCollection = IERC721(_nftAddress);
+        return nftCollection.ownerOf(_tokenId);
+    }
+
+    function onlyNftOwner(address _nftAddress, uint256 _tokenId) private view returns (bool) {
+        IERC721 nftCollection = IERC721(_nftAddress);
+        return nftCollection.ownerOf(_tokenId) == msg.sender;
+    }
+
+    function calculateIncentiveBurned(uint256 _totalFee) private pure returns (uint256) {
+        uint256 burned = (_totalFee * 2) / 100;
+        return burned;
+    }
+
+    // function to amount to be sent to dAO address
+    function calculateIncentiveDAO(uint256 _totalFee) private pure returns (uint256) {
+        uint256 dao = (_totalFee * 4) / 100;
+        return dao;
+    }
+
+    // function to amount to be sent to outbid bidder
+    function calculateIncentiveOutbid(uint256 _totalFee) private pure returns (uint256) {
+        uint256 outbid = (_totalFee * 2) / 100;
+        return outbid;
     }
 }

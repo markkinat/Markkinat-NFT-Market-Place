@@ -7,6 +7,7 @@ library LibMarketPlaceEvents {}
 library LibMarketPlaceErrors {
     error RecordExists();
     error NotOwner();
+    error NotOwnerOrHighestBidder();
     error RecordDoesNotExist();
     error InvalidCategory();
     error InvalidTime();
@@ -24,4 +25,6 @@ library LibMarketPlaceErrors {
     error AuctionEnded();
     error AuctionNotStarted();
     error AuctionStillInProgress();
+    error InvalidAddress();
+    error NoAuction();
 }
