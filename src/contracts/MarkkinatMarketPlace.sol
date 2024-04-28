@@ -436,7 +436,7 @@ contract MarkkinatMarketPlace {
             auction.status = Status.COMPLETED;
             // transfer the nft
             IERC721 nftCollection = IERC721(auction.assetContract);
-            nftCollection.safeTransferFrom(auction.listingCreator, auction.currentBidOwner, auction.tokenId);
+            nftCollection.safeTransferFrom(auction.auctionCreator, auction.currentBidOwner, auction.tokenId);
         }
 
         // emit event
@@ -474,7 +474,7 @@ contract MarkkinatMarketPlace {
         return allAuctions[auctionId];
     }
 
-    function getAllAuctions(uint256 startId, uint256 endId) external view returns (Auction[] memory auctions) {
+    function getAllAuctions() external view returns (Auction[] memory auctions) {
         return allAuctions;
     }
 
