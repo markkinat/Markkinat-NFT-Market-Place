@@ -352,32 +352,140 @@ contract MarkkinatMarketPlace {
         // emit event
     }
 
-    // function bidInAuction(uint256 auctionId, uint256 bidAmount) external payable;
+    function bidInAuction(uint256 auctionId, uint256 bidAmount) external payable isAuctionExpired(auctionId) {
+        Auction storage auction = allAuctions[auctionId];
 
-    // function getAllValidListings(uint256 startId, uint256 endId) external view returns (Listing[] memory listings); //active listings
+        if (auction.status != Status.CREATED || auction.startTimestamp < block.timestamp) {
+            revert LibMarketPlaceErrors.AuctionNotStarted();
+        }
 
-    // function cancelAuction(uint256 auctionId) external;
+        if (auction.endTimestamp <= block.timestamp) {
+            revert LibMarketPlaceErrors.AuctionEnded();
+        }
 
-    // function collectAuctionPayout(uint256 auctionId) external;
+        if (bidAmount < auction.minimumBidAmount) {
+            revert LibMarketPlaceErrors.IncorrectPrice();
+        }
 
-    // function collectAuctionTokens(uint256 auctionId) external;
+        if (bidAmount >= auction.buyoutBidAmount) {
+            // transfer the currency
+            IERC20 ERC20Token = IERC20(auction.currency);
+            ERC20Token.transferFrom(msg.sender, address(this), bidAmount);
 
-    // function isNewWinningBid(uint256 auctionId, uint256 bidAmount) external view returns (bool);
+            // transfer the nft
+            IERC721 nftCollection = IERC721(auction.assetContract);
+            nftCollection.safeTransferFrom(auction.auctionCreator, msg.sender, auction.tokenId);
 
-    // function totalAuctions() external view returns (uint256);
+            // update the auction status
+            auction.status = Status.COMPLETED;
 
-    // function getAuction(uint256 auctionId) external view returns (Auction memory auction);
+            // emit event
+        }
 
-    // function getAllAuctions(uint256 startId, uint256 endId) external view returns (Auction[] memory auctions);
+        if (bidAmount > auction.currentBidPrice) {
+            // transfer the currency
+            IERC20 ERC20Token = IERC20(auction.currency);
+            ERC20Token.transferFrom(msg.sender, auction.currentBidOwner, bidAmount);
 
-    // function getAllValidAuctions(uint256 startId, uint256 endId) external view returns (Auction[] memory auctions);
+            // update the current bid owner
+            auction.currentBidOwner = msg.sender;
+            auction.currentBidPrice = bidAmount;
 
-    // function getWinningBid(uint256 auctionId)
-    //     external
-    //     view
-    //     returns (address bidder, address currency, uint256 bidAmount);
+            // emit event
+        }
+    }
 
-    // function isAuctionExpired(uint256 auctionId) external view returns (bool);
+    function cancelAuction(uint256 auctionId) external {
+        Auction storage auction = allAuctions[auctionId];
+
+        if (auction.auctionCreator != msg.sender) {
+            revert LibMarketPlaceErrors.NotOwner();
+        }
+
+        if (auction.status == Status.COMPLETED) {
+            revert LibMarketPlaceErrors.CantCancelCompletedListing();
+        }
+
+        if (auction.status == Status.CANCELLED) {
+            revert LibMarketPlaceErrors.ListingAlreadyCompleted();
+        }
+
+        if (auction.currentBidOwner != address(0)) {
+            // transfer the currency
+            IERC20 ERC20Token = IERC20(auction.currency);
+            ERC20Token.transferFrom(address(this), auction.currentBidOwner, auction.currentBidPrice);
+        }
+
+        auction.status = Status.CANCELLED;
+
+        // emit event
+    }
+
+    function collectAuctionPayout(uint256 auctionId) external {
+        Auction storage auction = allAuctions[auctionId];
+
+        if (auction.auctionCreator != auction.currentBidOwner) {
+            revert LibMarketPlaceErrors.NotOwner();
+        }
+
+        if (auction.status != Status.COMPLETED || auction.endTimestamp < block.timestamp) {
+            revert LibMarketPlaceErrors.AuctionNotEnded();
+        }
+
+        if (auction.currentBidOwner != address(0)) {
+            auction.status = Status.COMPLETED;
+            // transfer the nft
+            IERC721 nftCollection = IERC721(auction.assetContract);
+            nftCollection.safeTransferFrom(auction.listingCreator, auction.currentBidOwner, auction.tokenId);
+        }
+
+        // emit event
+    }
+
+    function collectAuctionTokens(uint256 auctionId) external {
+        Auction storage auction = allAuctions[auctionId];
+
+        if (auction.auctionCreator != auction.auctionCreator) {
+            revert LibMarketPlaceErrors.NotOwner();
+        }
+
+        if (auction.status != Status.COMPLETED || auction.endTimestamp < block.timestamp) {
+            revert LibMarketPlaceErrors.AuctionNotEnded();
+        }
+
+        if (auction.currentBidOwner != address(0)) {
+            auction.status = Status.COMPLETED;
+            // transfer the token
+            IERC20 ERC20Token = IERC20(auction.currency);
+            ERC20Token.transferFrom(address(this), auction.auctionCreator, auction.currentBidPrice);
+        }
+    }
+
+    function isNewWinningBid(uint256 auctionId, uint256 bidAmount) external view returns (bool) {
+        Auction storage auction = allAuctions[auctionId];
+        return bidAmount > auction.currentBidPrice;
+    }
+
+    function totalAuctions() external view returns (uint256) {
+        return allAuctions.length;
+    }
+
+    function getAuction(uint256 auctionId) external view returns (Auction memory auction) {
+        return allAuctions[auctionId];
+    }
+
+    function getAllAuctions(uint256 startId, uint256 endId) external view returns (Auction[] memory auctions) {
+        return allAuctions;
+    }
+
+    function getWinningBid(uint256 auctionId)
+        external
+        view
+        returns (address bidder, address currency, uint256 bidAmount)
+    {
+        Auction storage auction = allAuctions[auctionId];
+        return (auction.currentBidOwner, auction.currency, auction.currentBidPrice);
+    }
 
     // function makeOffer(OfferParams memory params) external returns (uint256 offerId);
 
