@@ -23,5 +23,5 @@ library LibMarketPlaceErrors {
     error IncorrectPrice();
     error AuctionEnded();
     error AuctionNotStarted();
-    error AuctionNotEnded();
+    error AuctionStillInProgress();
 }

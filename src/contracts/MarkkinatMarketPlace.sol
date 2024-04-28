@@ -94,28 +94,6 @@ contract MarkkinatMarketPlace {
         Status status;
     }
 
-    struct OfferParams {
-        address assetContract;
-        uint256 tokenId;
-        uint256 quantity;
-        address currency;
-        uint256 totalPrice;
-        uint256 expirationTimestamp;
-    }
-
-    struct Offer {
-        uint256 offerId;
-        address offeror;
-        address assetContract;
-        uint256 tokenId;
-        uint256 quantity;
-        address currency;
-        uint256 totalPrice;
-        uint256 expirationTimestamp;
-        TokenType tokenType;
-        Status status;
-    }
-
     constructor() {}
 
     modifier isAuctionExpired(uint256 auctionId) {
@@ -123,6 +101,16 @@ contract MarkkinatMarketPlace {
             revert LibMarketPlaceErrors.AuctionEnded();
         }
         _;
+    }
+
+    modifier onlyAfterCompletedAuction(uint256 auctionId) {
+        require(isAuctionCompleted(auctionId), "LibMarketPlaceErrors.AuctionStillInProgress");
+        _;
+    }
+
+    function isAuctionCompleted(uint256 auctionId) internal view returns (bool) {
+        return
+            allAuctions[auctionId].endTimestamp <= block.timestamp && allAuctions[auctionId].status == Status.COMPLETED;
     }
 
     function createAuction(AuctionParameters memory params) external returns (uint256 auctionId) {
@@ -306,6 +294,7 @@ contract MarkkinatMarketPlace {
     function buyFromListing(uint256 listingId, address buyFor, address currency, uint256 expectedTotalPrice)
         external
         payable
+        isAuctionExpired(listingId)
     {
         Listing storage listing = allListings[listingId];
 
@@ -421,15 +410,11 @@ contract MarkkinatMarketPlace {
         // emit event
     }
 
-    function collectAuctionPayout(uint256 auctionId) external {
+    function collectAuctionPayout(uint256 auctionId) external onlyAfterCompletedAuction(auctionId) {
         Auction storage auction = allAuctions[auctionId];
 
         if (auction.auctionCreator != auction.currentBidOwner) {
             revert LibMarketPlaceErrors.NotOwner();
-        }
-
-        if (auction.status != Status.COMPLETED || auction.endTimestamp < block.timestamp) {
-            revert LibMarketPlaceErrors.AuctionNotEnded();
         }
 
         if (auction.currentBidOwner != address(0)) {
@@ -442,15 +427,11 @@ contract MarkkinatMarketPlace {
         // emit event
     }
 
-    function collectAuctionTokens(uint256 auctionId) external {
+    function collectAuctionTokens(uint256 auctionId) external onlyAfterCompletedAuction(auctionId) {
         Auction storage auction = allAuctions[auctionId];
 
         if (auction.auctionCreator != auction.auctionCreator) {
             revert LibMarketPlaceErrors.NotOwner();
-        }
-
-        if (auction.status != Status.COMPLETED || auction.endTimestamp < block.timestamp) {
-            revert LibMarketPlaceErrors.AuctionNotEnded();
         }
 
         if (auction.currentBidOwner != address(0)) {
@@ -486,24 +467,6 @@ contract MarkkinatMarketPlace {
         Auction storage auction = allAuctions[auctionId];
         return (auction.currentBidOwner, auction.currency, auction.currentBidPrice);
     }
-
-    // function makeOffer(OfferParams memory params) external returns (uint256 offerId);
-
-    // function cancelOffer(uint256 offerId) external;
-
-    // function acceptOffer(uint256 offerId) external;
-
-    // function cancelOffer(uint256 offerId) external;
-
-    // function acceptOffer(uint256 offerId) external;
-
-    // function totalOffers() external view returns (uint256);
-
-    // function getOffer(uint256 offerId) external view returns (Offer memory offer);
-
-    // function getAllOffers(uint256 startId, uint256 endId) external view returns (Offer[] memory offers);
-
-    // function getAllValidOffer(uint256 startId, uint256 endId) external view returns (Offer[] memory offers);
 
     function isContract(address _addr) internal view returns (bool addressCheck) {
         uint256 size;
