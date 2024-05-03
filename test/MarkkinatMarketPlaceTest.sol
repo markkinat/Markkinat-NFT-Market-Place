@@ -39,15 +39,16 @@ contract MarkkinatMarketPlaceTest is Test {
     }
 
     function runCreateAuction() private returns(MarkkinatMarketPlace.AuctionParameters memory) {
+        collectionNft.mint(A);
         MarkkinatMarketPlace.AuctionParameters memory params;
         params.assetContract = address(collectionNft);
         params.tokenId = 1;
         params.currency = address(tokenUsed);
         params.minimumBidAmount = 1 ether;
         params.buyoutBidAmount = 1.2 ether;
-        params.startTimestamp = uint64(4 seconds + block.timestamp);
-        params.endTimestamp = 1 days;
-        // params.
+        params.startTimestamp = uint128(block.timestamp);
+        params.endTimestamp = 2 days;
+        params.tokenType = MarkkinatMarketPlace.TokenType.ERC721;
 
         return params;
     }
@@ -203,9 +204,53 @@ contract MarkkinatMarketPlaceTest is Test {
         assertTrue(isCompleted);
     }
 
-    function testCreateAuction() external {
+    function testCreateAuctionWithUnsupportedTokenType() external {
+        switchSigner(A);
         MarkkinatMarketPlace.AuctionParameters memory params = runCreateAuction();
+        params.tokenType = MarkkinatMarketPlace.TokenType.ERC1155;
+        vm.expectRevert(LibMarketPlaceErrors.InvalidCategory.selector);
         marketPlace.createAuction(params);
+    }
+
+    function testAuctionCannotBeCreatedWithInValidStartTime() external {
+        switchSigner(A);
+        MarkkinatMarketPlace.AuctionParameters memory params = runCreateAuction();
+        params.startTimestamp = 2 days;
+
+        vm.expectRevert(LibMarketPlaceErrors.InvalidTime.selector);
+        marketPlace.createAuction(params);
+    }
+
+    function onlyAssetOwnerCanCreateAuctionOnThatParticularAsset() external {
+        switchSigner(B);
+        MarkkinatMarketPlace.AuctionParameters memory params = runCreateAuction();
+
+        vm.expectRevert(LibMarketPlaceErrors.NotOwner.selector);
+        marketPlace.createAuction(params);
+    }
+
+    function testMarketPlaceNeedsToApprovedForThatParticularAssetSoAuctionCanBeCreated() external {
+        switchSigner(A);
+        MarkkinatMarketPlace.AuctionParameters memory params = runCreateAuction();
+
+        vm.expectRevert(LibMarketPlaceErrors.MarketPlaceNotApproved.selector);
+        marketPlace.createAuction(params);
+    }
+
+    function testCreateAuction() external {
+        switchSigner(A);
+        MarkkinatMarketPlace.AuctionParameters memory params = runCreateAuction();
+
+        collectionNft.approve(address(marketPlace), 1);
+
+        marketPlace.createAuction(params);
+
+        MarkkinatMarketPlace.Auction memory auction = marketPlace.getAuction(0);
+
+        bool createdAuctionStatus = auction.status == MarkkinatMarketPlace.Status.CREATED;
+        assertEq(auction.auctionCreator, A);
+        assertEq(auction.endTimestamp, 2 days);
+        assertTrue(createdAuctionStatus);
     }
 
     function switchSigner(address _newSigner) private {
