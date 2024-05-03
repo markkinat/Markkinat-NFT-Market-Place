@@ -250,8 +250,11 @@ contract MarkkinatMarketPlaceTest is Test {
         bool createdAuctionStatus = auction.status == MarkkinatMarketPlace.Status.CREATED;
         assertEq(auction.auctionCreator, A);
         assertEq(auction.endTimestamp, 2 days);
+        assertEq(collectionNft.ownerOf(1), address(marketPlace));
         assertTrue(createdAuctionStatus);
     }
+
+    // function
 
     function switchSigner(address _newSigner) private {
         address foundrySigner = 0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38;
