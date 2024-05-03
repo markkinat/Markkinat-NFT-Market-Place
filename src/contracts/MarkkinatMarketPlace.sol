@@ -6,6 +6,7 @@ import "../interfaces/IERC721.sol";
 import "../interfaces/IERC20.sol";
 
 import {LibMarketPlaceErrors} from "../lib/LibMarketplace.sol";
+import { console } from "lib/forge-std/src/Test.sol";
 
 // we have two tyoes if listing
 // 1. Direct listing & EnglishAuctions
@@ -69,8 +70,8 @@ contract MarkkinatMarketPlace {
         address currency;
         uint256 minimumBidAmount;
         uint256 buyoutBidAmount;
-        uint64 startTimestamp;
-        uint64 endTimestamp;
+        uint128 startTimestamp;
+        uint128 endTimestamp;
         TokenType tokenType;
     }
 
@@ -84,8 +85,8 @@ contract MarkkinatMarketPlace {
         uint256 currentBidPrice;
         uint256 minimumBidAmount;
         uint256 buyoutBidAmount;
-        uint64 startTimestamp;
-        uint64 endTimestamp;
+        uint128 startTimestamp;
+        uint128 endTimestamp;
         TokenType tokenType;
         Status status;
     }
@@ -169,7 +170,6 @@ contract MarkkinatMarketPlace {
 
         if (
             listing.listingCreator != msg.sender
-                || getNFTCurrentOwner(listing.assetContract, listing.tokenId) != msg.sender
         ) {
             revert LibMarketPlaceErrors.NotOwner();
         }
@@ -215,11 +215,6 @@ contract MarkkinatMarketPlace {
             revert LibMarketPlaceErrors.CantUpdateIfStatusNotCreated();
         }
 
-        //if listing is cancelled or completed
-        if (listing.status == Status.CANCELLED || listing.status == Status.COMPLETED) {
-            revert LibMarketPlaceErrors.CantUpdate();
-        }
-
         approvedCurrencyForListing[listingId][currency] = true;
         approvedCurrencyForAmount[listingId][currency] = priceInCurrency;
 
@@ -242,7 +237,7 @@ contract MarkkinatMarketPlace {
     function buyFromListing(uint256 listingId, address buyFor, address currency, uint256 expectedTotalPrice)
         external
         payable
-        isAuctionExpired(listingId)
+        // isAuctionExpired(listingId)
     {
         Listing storage listing = allListings[listingId];
 
@@ -262,11 +257,11 @@ contract MarkkinatMarketPlace {
         bool isApprovedCurrency = approvedCurrencyForListing[listingId][currency];
         uint256 approvedCurrencyAmount = approvedCurrencyForAmount[listingId][currency];
 
-        if (listing.currency != currency || !isApprovedCurrency) {
+        if (listing.currency != currency ) {
             revert LibMarketPlaceErrors.InvalidCurrency();
         }
 
-        if (listing.price != expectedTotalPrice || listing.price != approvedCurrencyAmount) {
+        if (listing.price != expectedTotalPrice ) {
             revert LibMarketPlaceErrors.IncorrectPrice();
         }
 
@@ -278,10 +273,10 @@ contract MarkkinatMarketPlace {
         uint256 dao = calculateIncentiveDAO(priceToBeUsed);
 
         // transfer the currency
-        IERC20 ERC20Token = IERC20(currencyToBeUsed);
-        ERC20Token.transferFrom(msg.sender, address(this), priceToBeUsed);
-        ERC20Token.transferFrom(address(this), address(0), burn);
-        ERC20Token.transferFrom(address(this), daoAddress, dao);
+        IERC20 erc20Token = IERC20(currencyToBeUsed);
+        erc20Token.transferFrom(msg.sender, daoAddress, dao);
+        erc20Token.transferFrom(msg.sender, listing.assetContract, burn);
+        erc20Token.transferFrom(msg.sender, listing.listingCreator, (priceToBeUsed - dao - burn));
 
         // transfer the nft
         IERC721 nftCollection = IERC721(listing.assetContract);
