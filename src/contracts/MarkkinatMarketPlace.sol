@@ -96,20 +96,20 @@ contract MarkkinatMarketPlace {
     }
 
     modifier isAuctionExpired(uint256 auctionId) {
-        if (allAuctions[auctionId].endTimestamp >= block.timestamp) {
+        if (block.timestamp > allAuctions[auctionId].endTimestamp) {
             revert LibMarketPlaceErrors.AuctionEnded();
         }
         _;
     }
 
     modifier onlyAfterCompletedAuction(uint256 auctionId) {
-        require(isAuctionCompleted(auctionId), "AuctionStillInProgress");
+        require(isAuctionCompleted(auctionId), "Auction Still In Progress");
         _;
     }
 
     function isAuctionCompleted(uint256 auctionId) internal view returns (bool) {
         return
-            allAuctions[auctionId].endTimestamp <= block.timestamp && allAuctions[auctionId].status == Status.COMPLETED;
+            allAuctions[auctionId].endTimestamp <= block.timestamp || allAuctions[auctionId].status == Status.COMPLETED;
     }
 
     function createListing(ListingParameters memory params) external returns (uint256 listingId) {
@@ -346,7 +346,7 @@ contract MarkkinatMarketPlace {
     function bidInAuction(uint256 auctionId, uint256 bidAmount) external payable isAuctionExpired(auctionId) {
         Auction storage auction = allAuctions[auctionId];
 
-        if (auction.status != Status.CREATED || auction.startTimestamp < block.timestamp) {
+        if (auction.status != Status.CREATED || auction.startTimestamp > block.timestamp) {
             revert LibMarketPlaceErrors.AuctionNotStarted();
         }
 
@@ -360,23 +360,25 @@ contract MarkkinatMarketPlace {
 
         address previousHighestBidder = auction.currentBidOwner;
         uint256 previousHighestBid = auction.currentBidPrice;
+        IERC20 ERC20Token = IERC20(auction.currency);
 
         if (bidAmount >= auction.buyoutBidAmount) {
             // update the auction status
             auction.status = Status.COMPLETED;
+            auction.endTimestamp = uint128(block.timestamp);
 
             // transfer the currency
-            IERC20 ERC20Token = IERC20(auction.currency);
+            // IERC20 ERC20Token = IERC20(auction.currency);
             ERC20Token.transferFrom(msg.sender, address(this), bidAmount);
 
             // transfer the nft
             IERC721 nftCollection = IERC721(auction.assetContract);
-            nftCollection.safeTransferFrom(auction.auctionCreator, msg.sender, auction.tokenId);
+            nftCollection.safeTransferFrom(address(this), msg.sender, auction.tokenId);
 
             if (previousHighestBidder != address(0)) {
                 // calculate Incentive
                 uint256 incentive = calculateIncentiveOutbid(previousHighestBid);
-                ERC20Token.transferFrom(msg.sender, address(this), previousHighestBid + incentive);
+                ERC20Token.transfer(previousHighestBidder, previousHighestBid + incentive);
             }
 
             // emit event
@@ -386,9 +388,13 @@ contract MarkkinatMarketPlace {
             // transfer the currency
             if (previousHighestBidder != address(0)) {
                 // calculate Incentive
-                IERC20 ERC20Token = IERC20(auction.currency);
+                // IERC20 ERC20Token = IERC20(auction.currency);
                 uint256 incentive = calculateIncentiveOutbid(previousHighestBid);
-                ERC20Token.transferFrom(msg.sender, address(this), previousHighestBid + incentive);
+                ERC20Token.transferFrom(msg.sender, address(this), bidAmount);
+                ERC20Token.transfer(previousHighestBidder, previousHighestBid + incentive);
+            }
+            else {
+                ERC20Token.transferFrom(msg.sender, address(this), bidAmount);
             }
 
             // update the current bid owner
@@ -430,13 +436,8 @@ contract MarkkinatMarketPlace {
     function collectAuctionPayout(uint256 auctionId) external onlyAfterCompletedAuction(auctionId) {
         Auction storage auction = allAuctions[auctionId];
 
-        if (auction.currentBidOwner == address(0)) revert LibMarketPlaceErrors.NoAuction();
-
         // Only owner or highestBidder should claim or finalize auction
-
-        if (msg.sender != auction.currentBidOwner || msg.sender != auction.auctionCreator) {
-            revert LibMarketPlaceErrors.NotOwnerOrHighestBidder();
-        }
+        if(msg.sender != auction.auctionCreator) revert LibMarketPlaceErrors.NotOwnerOrHighestBidder();
 
         auction.status = Status.COMPLETED;
 
@@ -448,11 +449,8 @@ contract MarkkinatMarketPlace {
 
         // transfer the currency
         IERC20 ERC20Token = IERC20(auction.currency);
-        ERC20Token.transferFrom(address(this), auction.auctionCreator, amountToBeSent);
-
-        // transfer the nft
-        IERC721 nftCollection = IERC721(auction.assetContract);
-        nftCollection.safeTransferFrom(address(this), msg.sender, auction.tokenId);
+        ERC20Token.transfer(auction.auctionCreator, amountToBeSent);
+        ERC20Token.transfer(daoAddress, dao);
 
         // emit event
     }

@@ -45,11 +45,10 @@ contract MarkkinatMarketPlaceTest is Test {
         params.tokenId = 1;
         params.currency = address(tokenUsed);
         params.minimumBidAmount = 1 ether;
-        params.buyoutBidAmount = 1.2 ether;
+        params.buyoutBidAmount = 1.9 ether;
         params.startTimestamp = uint128(block.timestamp);
         params.endTimestamp = 2 days;
         params.tokenType = MarkkinatMarketPlace.TokenType.ERC721;
-
         return params;
     }
 
@@ -254,7 +253,88 @@ contract MarkkinatMarketPlaceTest is Test {
         assertTrue(createdAuctionStatus);
     }
 
-    // function
+    function testAuctionCancellation() external {
+        switchSigner(A);
+        MarkkinatMarketPlace.AuctionParameters memory params = runCreateAuction();
+        collectionNft.approve(address(marketPlace), 1);
+        marketPlace.createAuction(params);
+
+        switchSigner(B);
+        vm.expectRevert(LibMarketPlaceErrors.NotOwner.selector);
+        marketPlace.cancelAuction(0);
+    }
+
+    function testBidInAuctionCanOnlyBeDoneWhenCurrentTimeIsLessThanTheEndTime() external{
+        switchSigner(A);
+        MarkkinatMarketPlace.AuctionParameters memory params = runCreateAuction();
+        collectionNft.approve(address(marketPlace), 1);
+        marketPlace.createAuction(params);
+
+
+        switchSigner(B);
+        tokenUsed.runMint();
+        vm.warp(3 days);
+
+        vm.expectRevert(LibMarketPlaceErrors.AuctionEnded.selector);
+        marketPlace.bidInAuction(0, 1 ether);
+    }
+
+    function testBidAuction() external {
+        switchSigner(A);
+        MarkkinatMarketPlace.AuctionParameters memory params = runCreateAuction();
+        collectionNft.approve(address(marketPlace), 1);
+        marketPlace.createAuction(params);
+
+
+        switchSigner(C);
+        tokenUsed.runMint();
+        tokenUsed.approve(address(marketPlace), 2 ether);
+
+        marketPlace.bidInAuction(0, 2 ether);
+        console.log("dao is 2 ethers ::: ", 2 ether);
+
+        MarkkinatMarketPlace.Auction memory auction = marketPlace.getAuction(0);
+
+        assertEq(auction.auctionCreator, A);
+
+        bool isCompleted = auction.status == MarkkinatMarketPlace.Status.COMPLETED;
+
+        switchSigner(A);
+        marketPlace.collectAuctionPayout(0);
+
+        assertEq(collectionNft.ownerOf(1), C);
+        assertTrue(isCompleted);
+        assertEq(tokenUsed.balanceOf(A), 1.84 ether);
+    }
+
+    function testBidAuctionMultipleWays() external {
+        switchSigner(A);
+        MarkkinatMarketPlace.AuctionParameters memory params = runCreateAuction();
+        collectionNft.approve(address(marketPlace), 1);
+        marketPlace.createAuction(params);
+
+        switchSigner(C);
+        tokenUsed.runMint();
+        tokenUsed.approve(address(marketPlace), 1.2 ether);
+        marketPlace.bidInAuction(0, 1.2 ether);
+
+        uint day = 1 days + 23 hours + 59 minutes + 58 seconds;
+        vm.warp(day);
+
+        switchSigner(B);
+        tokenUsed.runMint();
+        tokenUsed.approve(address(marketPlace), 1.3 ether);
+        marketPlace.bidInAuction(0, 1.3 ether);
+
+        vm.warp(2.2 days);
+        switchSigner(A);
+        marketPlace.collectAuctionPayout(0);
+
+        assertEq(tokenUsed.balanceOf(A), 1.2 ether);
+        // assertEq(tokenUsed.balanceOf(C), 3.2 ether);
+        assertEq(tokenUsed.balanceOf(B), 1.7 ether);
+
+    }
 
     function switchSigner(address _newSigner) private {
         address foundrySigner = 0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38;
