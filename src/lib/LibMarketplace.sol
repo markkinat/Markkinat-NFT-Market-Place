@@ -4,15 +4,15 @@ pragma solidity ^0.8.20;
 
 library LibMarketPlaceEvents {
     event CreateListingSucessful(uint256 indexed, address);
-    event ListingUpdatedSuccessfully(uint256 indexed, address, uint);
-    event ListingCancelledSuccessfully(uint indexed);
-    event ApproveListingCurrency(uint indexed, address, uint);
-    event BuyListing(uint indexed, address indexed, uint);
-    event CreateAuction(uint, address, uint);
-    event AuctionCompleteBuyout(uint indexed, address indexed, uint);
-    event BidSuccessfullyPlaced(uint indexed, address indexed, uint);
-    event AuctionCancelledSuccessfully(uint indexed);
-    event AuctionPayout(uint indexed, address indexed, uint, uint);
+    event ListingUpdatedSuccessfully(uint256 indexed, address, uint256);
+    event ListingCancelledSuccessfully(uint256 indexed);
+    event ApproveListingCurrency(uint256 indexed, address, uint256);
+    event BuyListing(uint256 indexed, address indexed, uint256);
+    event CreateAuction(uint256, address, uint256);
+    event AuctionCompleteBuyout(uint256 indexed, address indexed, uint256);
+    event BidSuccessfullyPlaced(uint256 indexed, address indexed, uint256);
+    event AuctionCancelledSuccessfully(uint256 indexed);
+    event AuctionPayout(uint256 indexed, address indexed, uint256, uint256);
 }
 
 library LibMarketPlaceErrors {

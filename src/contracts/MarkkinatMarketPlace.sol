@@ -5,12 +5,14 @@ import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "../interfaces/IERC721.sol";
 import "../interfaces/IERC20.sol";
 
+import "@openzeppelin/contracts/access/Ownable.sol";
+
 import {LibMarketPlaceErrors, LibMarketPlaceEvents} from "../lib/LibMarketplace.sol";
-import { console } from "lib/forge-std/src/Test.sol";
+import {console} from "lib/forge-std/src/Test.sol";
 
 // we have two tyoes if listing
 // 1. Direct listing & EnglishAuctions
-contract MarkkinatMarketPlace {
+contract MarkkinatMarketPlace is Ownable {
     uint256 auctionIndex;
     uint256 listingIndex;
     address daoAddress;
@@ -91,7 +93,7 @@ contract MarkkinatMarketPlace {
         Status status;
     }
 
-    constructor(address daoaddress) {
+    constructor(address daoaddress, address initialOwner) payable Ownable(initialOwner) {
         daoAddress = daoaddress;
     }
 
@@ -169,9 +171,7 @@ contract MarkkinatMarketPlace {
         // get listing
         Listing storage listing = allListings[listingId];
 
-        if (
-            listing.listingCreator != msg.sender
-        ) {
+        if (listing.listingCreator != msg.sender) {
             revert LibMarketPlaceErrors.NotOwner();
         }
 
@@ -183,7 +183,7 @@ contract MarkkinatMarketPlace {
         listing.price = params.price;
 
         // update event
-        emit LibMarketPlaceEvents.ListingUpdatedSuccessfully(listingId,listing.currency, listing.price);
+        emit LibMarketPlaceEvents.ListingUpdatedSuccessfully(listingId, listing.currency, listing.price);
     }
 
     function cancelListing(uint256 listingId) external {
@@ -241,7 +241,7 @@ contract MarkkinatMarketPlace {
     function buyFromListing(uint256 listingId, address buyFor, address currency, uint256 expectedTotalPrice)
         external
         payable
-        // isAuctionExpired(listingId)
+    // isAuctionExpired(listingId)
     {
         Listing storage listing = allListings[listingId];
 
@@ -261,11 +261,11 @@ contract MarkkinatMarketPlace {
         bool isApprovedCurrency = approvedCurrencyForListing[listingId][currency];
         uint256 approvedCurrencyAmount = approvedCurrencyForAmount[listingId][currency];
 
-        if (listing.currency != currency ) {
+        if (listing.currency != currency) {
             revert LibMarketPlaceErrors.InvalidCurrency();
         }
 
-        if (listing.price != expectedTotalPrice ) {
+        if (listing.price != expectedTotalPrice) {
             revert LibMarketPlaceErrors.IncorrectPrice();
         }
 
@@ -399,8 +399,7 @@ contract MarkkinatMarketPlace {
                 uint256 incentive = calculateIncentiveOutbid(previousHighestBid);
                 ERC20Token.transferFrom(msg.sender, address(this), bidAmount);
                 ERC20Token.transfer(previousHighestBidder, previousHighestBid + incentive);
-            }
-            else {
+            } else {
                 ERC20Token.transfer(address(this), bidAmount);
             }
 
@@ -410,7 +409,6 @@ contract MarkkinatMarketPlace {
 
             // emit event
             emit LibMarketPlaceEvents.BidSuccessfullyPlaced(auctionId, msg.sender, bidAmount);
-
         }
     }
 
@@ -447,7 +445,7 @@ contract MarkkinatMarketPlace {
         Auction storage auction = allAuctions[auctionId];
 
         // Only owner or highestBidder should claim or finalize auction
-        if(msg.sender != auction.auctionCreator) revert LibMarketPlaceErrors.NotOwnerOrHighestBidder();
+        if (msg.sender != auction.auctionCreator) revert LibMarketPlaceErrors.NotOwnerOrHighestBidder();
 
         auction.status = Status.COMPLETED;
 
