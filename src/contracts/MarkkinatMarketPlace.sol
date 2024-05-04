@@ -222,7 +222,7 @@ contract MarkkinatMarketPlace {
         approvedCurrencyForAmount[listingId][currency] = priceInCurrency;
 
         // emit event
-        
+        emit LibMarketPlaceEvents.ApproveListingCurrency(listingId, currency, priceInCurrency);
     }
 
     // Get total listings
@@ -290,6 +290,7 @@ contract MarkkinatMarketPlace {
         listing.status = Status.COMPLETED;
 
         // emit event
+        emit LibMarketPlaceEvents.BuyListing(listingId, msg.sender, priceToBeUsed);
     }
 
     function createAuction(AuctionParameters memory params) external returns (uint256 auctionId) {
@@ -343,6 +344,7 @@ contract MarkkinatMarketPlace {
         allAuctions.push(auction);
 
         //emit event
+        emit LibMarketPlaceEvents.CreateAuction(auction.auctionId, msg.sender, auction.tokenId);
 
         return auction.auctionId;
     }
@@ -386,6 +388,7 @@ contract MarkkinatMarketPlace {
             }
 
             // emit event
+            emit LibMarketPlaceEvents.AuctionCompleteBuyout(auctionId, msg.sender, bidAmount);
         }
 
         if (bidAmount > auction.currentBidPrice) {
@@ -406,6 +409,8 @@ contract MarkkinatMarketPlace {
             auction.currentBidPrice = bidAmount;
 
             // emit event
+            emit LibMarketPlaceEvents.BidSuccessfullyPlaced(auctionId, msg.sender, bidAmount);
+
         }
     }
 
@@ -435,6 +440,7 @@ contract MarkkinatMarketPlace {
         nftCollection.safeTransferFrom(address(this), auction.auctionCreator, auction.tokenId);
 
         // emit event
+        emit LibMarketPlaceEvents.AuctionCancelledSuccessfully(auctionId);
     }
 
     function collectAuctionPayout(uint256 auctionId) external onlyAfterCompletedAuction(auctionId) {
@@ -457,6 +463,7 @@ contract MarkkinatMarketPlace {
         ERC20Token.transfer(daoAddress, dao);
 
         // emit event
+        emit LibMarketPlaceEvents.AuctionPayout(auctionId, msg.sender, amountToBeSent, auction.tokenId);
     }
 
     function isNewWinningBid(uint256 auctionId, uint256 bidAmount) external view returns (bool) {
