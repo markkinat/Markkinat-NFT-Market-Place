@@ -9,10 +9,10 @@ deploy-nft-sepolia:
 	@echo "Deploying to sepolia..."
 	@forge script ./script/MarkkinatMarketPlace.s.sol --rpc-url ${SEPOLIA_RPC_URL}  --broadcast --private-key ${PRIVATE_KEY} --etherscan-api-key ${ETHERSCAN_KEY} --verify -vvvvv
 
-test-dao:
+test-market:
 	@echo "Testing fix..."
-	@forge t --match-path test/MarkkinatMarketPlaceTest.sol -vv
+	@forge t --match-path test/MarkkinatMarketPlaceTest.t.sol -vv
 
-test-dao-verbose:
+test-market-verbose:
 	@echo "Testing fix..."
-	@forge t --match-path test/MarkkinatMarketPlaceTest.sol -vvvvv
+	@forge t --match-path test/MarkkinatMarketPlaceTest.t.sol -vvvv
