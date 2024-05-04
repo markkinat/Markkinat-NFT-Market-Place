@@ -2,7 +2,11 @@
 
 pragma solidity ^0.8.20;
 
-library LibMarketPlaceEvents {}
+library LibMarketPlaceEvents {
+    event CreateListingSucessful(uint256 indexed, address);
+    event ListingUpdatedSuccessfully(uint256 indexed, address, uint);
+    event ListingCancelledSuccessfully(uint);
+}
 
 library LibMarketPlaceErrors {
     error RecordExists();

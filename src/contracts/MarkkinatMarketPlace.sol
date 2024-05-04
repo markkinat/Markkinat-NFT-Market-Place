@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "../interfaces/IERC721.sol";
 import "../interfaces/IERC20.sol";
 
-import {LibMarketPlaceErrors} from "../lib/LibMarketplace.sol";
+import {LibMarketPlaceErrors, LibMarketPlaceEvents} from "../lib/LibMarketplace.sol";
 import { console } from "lib/forge-std/src/Test.sol";
 
 // we have two tyoes if listing
@@ -157,6 +157,7 @@ contract MarkkinatMarketPlace {
         allListings.push(listing);
 
         // emit event
+        emit LibMarketPlaceEvents.CreateListingSucessful(listing.listingId, msg.sender);
 
         return listing.listingId;
     }
@@ -182,6 +183,7 @@ contract MarkkinatMarketPlace {
         listing.price = params.price;
 
         // update event
+        emit LibMarketPlaceEvents.ListingUpdatedSuccessfully(listingId,listing.currency, listing.price);
     }
 
     function cancelListing(uint256 listingId) external {
@@ -202,6 +204,7 @@ contract MarkkinatMarketPlace {
         listing.status = Status.CANCELLED;
 
         // emit event
+        emit LibMarketPlaceEvents.ListingCancelledSuccessfully(listingId);
     }
 
     function approveCurrencyForListing(uint256 listingId, address currency, uint256 priceInCurrency) external {
@@ -219,6 +222,7 @@ contract MarkkinatMarketPlace {
         approvedCurrencyForAmount[listingId][currency] = priceInCurrency;
 
         // emit event
+        
     }
 
     // Get total listings
