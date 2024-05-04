@@ -12,4 +12,8 @@ contract Token is ERC20 {
     function runMint() external{
         _mint(msg.sender, 3 ether);
     }
+
+    function auctionMint() external{
+         _mint(msg.sender, 100 wei);
+    }
 }

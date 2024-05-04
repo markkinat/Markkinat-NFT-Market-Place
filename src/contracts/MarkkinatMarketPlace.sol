@@ -401,7 +401,7 @@ contract MarkkinatMarketPlace {
                 ERC20Token.transfer(previousHighestBidder, previousHighestBid + incentive);
             }
             else {
-                ERC20Token.transferFrom(msg.sender, address(this), bidAmount);
+                ERC20Token.transfer(address(this), bidAmount);
             }
 
             // update the current bid owner
@@ -463,7 +463,7 @@ contract MarkkinatMarketPlace {
         ERC20Token.transfer(daoAddress, dao);
 
         // emit event
-        emit LibMarketPlaceEvents.AuctionPayout(auctionId, msg.sender, amountToBeSent, auction.tokenId);
+        emit LibMarketPlaceEvents.AuctionPayout(auctionId, msg.sender, amountToBeSent, auctionId);
     }
 
     function isNewWinningBid(uint256 auctionId, uint256 bidAmount) external view returns (bool) {
