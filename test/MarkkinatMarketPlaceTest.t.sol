@@ -3,9 +3,9 @@ pragma solidity 0.8.20;
 
 import {Test, console} from "lib/forge-std/src/Test.sol";
 import {MarkkinatMarketPlace} from "src/contracts/MarkkinatMarketPlace.sol";
-import { CollectionNFT } from "src/contracts/CollectionNFT.sol";
-import { LibMarketPlaceErrors } from "src/lib/LibMarketplace.sol";
-import { Token } from "src/contracts/Token.sol";
+import {CollectionNFT} from "src/contracts/CollectionNFT.sol";
+import {LibMarketPlaceErrors} from "src/lib/LibMarketplace.sol";
+import {Token} from "src/contracts/Token.sol";
 
 contract MarkkinatMarketPlaceTest is Test {
     MarkkinatMarketPlace private marketPlace;
@@ -16,9 +16,8 @@ contract MarkkinatMarketPlaceTest is Test {
     address C = address(0xc);
     address D = address(0xd);
 
-
     function setUp() external {
-        marketPlace = new MarkkinatMarketPlace(address(1));
+        marketPlace = new MarkkinatMarketPlace(address(1), A);
         collectionNft = new CollectionNFT("", "", "", "", A);
         tokenUsed = new Token("", "");
         fundUserEth(A);
@@ -34,7 +33,7 @@ contract MarkkinatMarketPlaceTest is Test {
         vm.deal(address(userAdress), 1 ether);
     }
 
-    function runCreateListing() private returns(MarkkinatMarketPlace.ListingParameters memory){
+    function runCreateListing() private returns (MarkkinatMarketPlace.ListingParameters memory) {
         collectionNft.mint(A);
         MarkkinatMarketPlace.ListingParameters memory params;
         params.assetContract = address(collectionNft);
@@ -49,7 +48,7 @@ contract MarkkinatMarketPlaceTest is Test {
         return params;
     }
 
-    function runCreateAuction() private returns(MarkkinatMarketPlace.AuctionParameters memory) {
+    function runCreateAuction() private returns (MarkkinatMarketPlace.AuctionParameters memory) {
         collectionNft.mint(A);
         MarkkinatMarketPlace.AuctionParameters memory params;
         params.assetContract = address(collectionNft);
@@ -106,7 +105,7 @@ contract MarkkinatMarketPlaceTest is Test {
 
     function testThatMarketPlaceMustBeApprovedBeforeBeforeListingCanBeCreated() external {
         MarkkinatMarketPlace.ListingParameters memory params = runCreateListing();
-        
+
         vm.expectRevert();
         marketPlace.createListing(params);
     }
@@ -146,10 +145,9 @@ contract MarkkinatMarketPlaceTest is Test {
         MarkkinatMarketPlace.Listing memory listed = marketPlace.getListing(0);
 
         assertEq(listed.price, 2 ether);
-
     }
 
-    function testThatOnlyListedAssetWithCreatedStatusCanBeUpdated() external{
+    function testThatOnlyListedAssetWithCreatedStatusCanBeUpdated() external {
         switchSigner(A);
         MarkkinatMarketPlace.ListingParameters memory params = runCreateListing();
         collectionNft.approve(address(marketPlace), 1);
@@ -163,13 +161,11 @@ contract MarkkinatMarketPlaceTest is Test {
         marketPlace.updateListing(0, params);
     }
 
-    function confirmThatWhenAListingIsCancelledTheAssetIsTransferBackToTheOwner() external{
+    function confirmThatWhenAListingIsCancelledTheAssetIsTransferBackToTheOwner() external {}
 
-    }
-
-    function testBuyListing() external{
+    function testBuyListing() external {
         switchSigner(A);
-        
+
         MarkkinatMarketPlace.ListingParameters memory params = runCreateListing();
         collectionNft.approve(address(marketPlace), 1);
         params.reserved = false;
@@ -274,12 +270,11 @@ contract MarkkinatMarketPlaceTest is Test {
         marketPlace.cancelAuction(0);
     }
 
-    function testBidInAuctionCanOnlyBeDoneWhenCurrentTimeIsLessThanTheEndTime() external{
+    function testBidInAuctionCanOnlyBeDoneWhenCurrentTimeIsLessThanTheEndTime() external {
         switchSigner(A);
         MarkkinatMarketPlace.AuctionParameters memory params = runCreateAuction();
         collectionNft.approve(address(marketPlace), 1);
         marketPlace.createAuction(params);
-
 
         switchSigner(B);
         vm.warp(3 days);
@@ -327,7 +322,11 @@ contract MarkkinatMarketPlaceTest is Test {
         tokenUsed.approve(address(marketPlace), 1.3 ether);
         marketPlace.bidInAuction(0, 1.3 ether);
 
+<<<<<<< HEAD:test/MarkkinatMarketPlaceTest.sol
         uint day = 1 days + 23 hours + 59 minutes + 59 seconds;
+=======
+        uint256 day = 1 days + 23 hours + 59 minutes + 58 seconds;
+>>>>>>> cfa472a259008c4b27ab4aa746dc01745414be24:test/MarkkinatMarketPlaceTest.t.sol
         vm.warp(day);
 
         switchSigner(B);
@@ -344,11 +343,15 @@ contract MarkkinatMarketPlaceTest is Test {
         assertEq(collectionNft.ownerOf(1), B);
         assertTrue(tokenUsed.balanceOf(A) > 4.2 ether);
         assertTrue(tokenUsed.balanceOf(C) > 3 ether);
+<<<<<<< HEAD:test/MarkkinatMarketPlaceTest.sol
         assertTrue(tokenUsed.balanceOf(B) >  1.5 ether);
 
         switchSigner(A);
         vm.expectRevert("Double Cliam not permitted");
         marketPlace.collectAuctionPayout(0);
+=======
+        assertTrue(tokenUsed.balanceOf(B) > 1.5 ether);
+>>>>>>> cfa472a259008c4b27ab4aa746dc01745414be24:test/MarkkinatMarketPlaceTest.t.sol
     }
 
     function switchSigner(address _newSigner) private {
