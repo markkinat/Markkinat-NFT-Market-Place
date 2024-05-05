@@ -296,7 +296,6 @@ contract MarkkinatMarketPlaceTest is Test {
 
         switchSigner(C);
         tokenUsed.approve(address(marketPlace), 2 ether);
-
         marketPlace.bidInAuction(0, 2 ether);
 
         MarkkinatMarketPlace.Auction memory auction = marketPlace.getAuction(0);
@@ -305,8 +304,13 @@ contract MarkkinatMarketPlaceTest is Test {
 
         bool isCompleted = auction.status == MarkkinatMarketPlace.Status.COMPLETED;
 
+        vm.warp(5 minutes);
         switchSigner(A);
         marketPlace.collectAuctionPayout(0);
+
+        switchSigner(C);
+        vm.expectRevert("Asset Already Claimed");
+        marketPlace.claimAuction(0);
 
         assertEq(collectionNft.ownerOf(1), C);
         assertTrue(isCompleted);
@@ -323,22 +327,28 @@ contract MarkkinatMarketPlaceTest is Test {
         tokenUsed.approve(address(marketPlace), 1.3 ether);
         marketPlace.bidInAuction(0, 1.3 ether);
 
-        uint day = 1 days + 23 hours + 59 minutes + 58 seconds;
+        uint day = 1 days + 23 hours + 59 minutes + 59 seconds;
         vm.warp(day);
 
         switchSigner(B);
-        // tokenUsed.auctionMint();
         tokenUsed.approve(address(marketPlace), 1.4 ether);
         marketPlace.bidInAuction(0, 1.4 ether);
 
-        vm.warp(2.2 days);
+        vm.warp(1 days + 23 hours + 61 minutes);
+        switchSigner(B);
+        marketPlace.claimAuction(0);
+   
         switchSigner(A);
         marketPlace.collectAuctionPayout(0);
 
-        assertTrue(tokenUsed.balanceOf(A) > 4 ether);
+        assertEq(collectionNft.ownerOf(1), B);
+        assertTrue(tokenUsed.balanceOf(A) > 4.2 ether);
         assertTrue(tokenUsed.balanceOf(C) > 3 ether);
         assertTrue(tokenUsed.balanceOf(B) >  1.5 ether);
 
+        switchSigner(A);
+        vm.expectRevert("Double Cliam not permitted");
+        marketPlace.collectAuctionPayout(0);
     }
 
     function switchSigner(address _newSigner) private {

@@ -26,6 +26,4 @@ contract MarkkinatNFTFactory {
         CollectionNFT newCollection = new CollectionNFT(_name, symbol, desc, uri, _creator);
         collectionsNft[++collectionId] = address(newCollection);
     }
-
-    // function getCollection(uint256 _id) external
 }

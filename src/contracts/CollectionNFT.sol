@@ -21,8 +21,4 @@ contract CollectionNFT is ERC721URIStorage, Ownable {
         uint256 _tokenId = minterTokenId[_minter];
         _mint(_minter, ++_tokenId);
     }
-
-    // function approveContract(address _minter, address _contractAddress, uint256 _tokenId) external {
-    //     _approve(_contractAddress, _tokenId, _minter);
-    // }
 }
