@@ -172,7 +172,9 @@ contract MarkkinatMarketPlace is Ownable {
         // get listing
         Listing storage listing = allListings[listingId];
 
-        if (listing.listingCreator != msg.sender) {
+        if (
+            listing.listingCreator != msg.sender
+        ) {
             revert LibMarketPlaceErrors.NotOwner();
         }
 
@@ -184,7 +186,7 @@ contract MarkkinatMarketPlace is Ownable {
         listing.price = params.price;
 
         // update event
-        emit LibMarketPlaceEvents.ListingUpdatedSuccessfully(listingId, listing.currency, listing.price);
+        emit LibMarketPlaceEvents.ListingUpdatedSuccessfully(listingId,listing.currency, listing.price);
     }
 
     function cancelListing(uint256 listingId) external {
@@ -242,7 +244,7 @@ contract MarkkinatMarketPlace is Ownable {
     function buyFromListing(uint256 listingId, address buyFor, address currency, uint256 expectedTotalPrice)
         external
         payable
-    // isAuctionExpired(listingId)
+        // isAuctionExpired(listingId)
     {
         Listing storage listing = allListings[listingId];
 
@@ -262,11 +264,11 @@ contract MarkkinatMarketPlace is Ownable {
         bool isApprovedCurrency = approvedCurrencyForListing[listingId][currency];
         uint256 approvedCurrencyAmount = approvedCurrencyForAmount[listingId][currency];
 
-        if (listing.currency != currency) {
+        if (listing.currency != currency ) {
             revert LibMarketPlaceErrors.InvalidCurrency();
         }
 
-        if (listing.price != expectedTotalPrice) {
+        if (listing.price != expectedTotalPrice ) {
             revert LibMarketPlaceErrors.IncorrectPrice();
         }
 
@@ -402,19 +404,17 @@ contract MarkkinatMarketPlace is Ownable {
             if (previousHighestBidder != address(0)) {
                 // calculate Incentive
                 uint256 incentive = calculateIncentiveOutbid(previousHighestBid);
-                ERC20Token.transferFrom(msg.sender, address(this), bidAmount);
-                ERC20Token.transfer(previousHighestBidder, previousHighestBid + incentive);
+                erc20Token.transfer(previousHighestBidder, previousHighestBid + incentive);
             }
-            else {
-                ERC20Token.transfer(address(this), bidAmount);
-            }
-
             // update the current bid owner
             auction.currentBidOwner = msg.sender;
             auction.currentBidPrice = bidAmount;
             // emit event
             emit LibMarketPlaceEvents.BidSuccessfullyPlaced(auctionId, msg.sender, bidAmount);
+        }
 
+        if (block.timestamp >= auction.endTimestamp && auction.status != Status.COMPLETED){
+            auction.status = Status.COMPLETED;
         }
     }
 
@@ -465,6 +465,8 @@ contract MarkkinatMarketPlace is Ownable {
 
         // Only owner or highestBidder should claim or finalize auction
         if(msg.sender != auction.auctionCreator) revert LibMarketPlaceErrors.NotOwnerOrHighestBidder();
+        require(auction.endTimestamp < block.timestamp, "Auction Not Ended");
+        require(!paidAuctionCreator[auctionId], "Double Cliam not permitted");
 
         paidAuctionCreator[auctionId] = true;
         auction.status = Status.COMPLETED;
