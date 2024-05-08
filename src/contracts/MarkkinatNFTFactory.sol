@@ -23,7 +23,7 @@ contract MarkkinatNFTFactory {
         string calldata desc,
         string memory uri
     ) external {
-        CollectionNFT newCollection = new CollectionNFT(_name, symbol, desc, uri, _creator);
-        collectionsNft[++collectionId] = address(newCollection);
+    //    CollectionNFT newCollection = new CollectionNFT(_name, symbol, desc, uri, _creator);
+    //    collectionsNft[++collectionId] = address(newCollection);
     }
 }

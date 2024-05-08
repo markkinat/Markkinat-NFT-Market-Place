@@ -11,15 +11,15 @@ contract MarkkinatMarketPlaceTest is Test {
     MarkkinatMarketPlace private marketPlace;
     CollectionNFT private collectionNft;
     Token private tokenUsed;
-    address A = address(0xa);
-    address B = address(0xb);
+    address payable private A = payable(address(0xa));
+    address B = payable(address(0xb));
     address C = address(0xc);
     address D = address(0xd);
 
 
     function setUp() external {
         marketPlace = new MarkkinatMarketPlace(address(1), address(2));
-        collectionNft = new CollectionNFT("", "", "", "", A);
+        collectionNft = new CollectionNFT(payable(address(0xd2)),"", "", "", "", A);
         tokenUsed = new Token("", "");
         fundUserEth(A);
         fundUserEth(B);
