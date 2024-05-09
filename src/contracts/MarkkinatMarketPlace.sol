@@ -49,6 +49,7 @@ contract MarkkinatMarketPlace is Ownable {
         uint128 startTimestamp;
         uint128 endTimestamp;
         bool reserved;
+        address intiator;
         TokenType tokenType;
     }
 
@@ -116,6 +117,7 @@ contract MarkkinatMarketPlace is Ownable {
     }
 
     function createListing(ListingParameters memory params) external returns (uint256 listingId) {
+        address interactor = params.intiator;
         if (params.tokenType != TokenType.ERC721) {
             revert LibMarketPlaceErrors.InvalidCategory();
         }
@@ -131,7 +133,7 @@ contract MarkkinatMarketPlace is Ownable {
         IERC721 nftCollection = IERC721(params.assetContract);
 
         // check onwner of nft
-        if (nftCollection.ownerOf(params.tokenId) != msg.sender) {
+        if (nftCollection.ownerOf(params.tokenId) != interactor) {
             revert LibMarketPlaceErrors.NotOwner();
         }
 
@@ -139,11 +141,11 @@ contract MarkkinatMarketPlace is Ownable {
             revert LibMarketPlaceErrors.MarketPlaceNotApproved();
         }
 
-        nftCollection.transferFrom(msg.sender, address(this), params.tokenId);
+        nftCollection.transferFrom(interactor, address(this), params.tokenId);
 
         Listing memory listing = Listing({
             listingId: listingIndex,
-            listingCreator: msg.sender,
+            listingCreator: interactor,
             assetContract: params.assetContract,
             tokenId: params.tokenId,
             currency: params.currency,
@@ -160,7 +162,7 @@ contract MarkkinatMarketPlace is Ownable {
         allListings.push(listing);
 
         // emit event
-        emit LibMarketPlaceEvents.CreateListingSucessful(listing.listingId, msg.sender);
+        emit LibMarketPlaceEvents.CreateListingSucessful(listing.listingId, interactor);
 
         return listing.listingId;
     }
@@ -242,8 +244,8 @@ contract MarkkinatMarketPlace is Ownable {
     }
 
     function buyFromListing(uint256 listingId, address buyFor, address currency, uint256 expectedTotalPrice)
-        external
-        payable
+    external
+    payable
         // isAuctionExpired(listingId)
     {
         Listing storage listing = allListings[listingId];
@@ -354,7 +356,7 @@ contract MarkkinatMarketPlace is Ownable {
         return auction.auctionId;
     }
 
-    function bidInAuction(uint256 auctionId, uint256 bidAmount) external payable isAuctionExpired(auctionId) {
+    function bidInAuction(address interactor,uint256 auctionId, uint256 bidAmount) external payable isAuctionExpired(auctionId) {
         Auction storage auction = allAuctions[auctionId];
 
         if (auction.status != Status.CREATED || auction.startTimestamp > block.timestamp) {
@@ -379,21 +381,21 @@ contract MarkkinatMarketPlace is Ownable {
             auction.paidBuyOutBid = true;
 
             IERC20 erc20Token = IERC20(auction.currency);
-            erc20Token.transferFrom(msg.sender, address(this), bidAmount);
+            erc20Token.transferFrom(interactor, address(this), bidAmount);
 
             // transfer the nft
             IERC721 nftCollection = IERC721(auction.assetContract);
-            nftCollection.safeTransferFrom(address(this), msg.sender, auction.tokenId);
+            nftCollection.safeTransferFrom(address(this), interactor, auction.tokenId);
 
             if (previousHighestBidder != address(0)) {
                 // calculate Incentive
                 uint256 incentive = calculateIncentiveOutbid(previousHighestBid);
                 erc20Token.transfer(previousHighestBidder, previousHighestBid + incentive);
             }
-            auction.currentBidOwner = msg.sender;
+            auction.currentBidOwner = interactor;
             auction.currentBidPrice = bidAmount;
             // emit event
-            emit LibMarketPlaceEvents.AuctionCompleteBuyout(auctionId, msg.sender, bidAmount);
+            emit LibMarketPlaceEvents.AuctionCompleteBuyout(auctionId, interactor, bidAmount);
         }
 
         else if (bidAmount > auction.currentBidPrice) {
@@ -447,17 +449,17 @@ contract MarkkinatMarketPlace is Ownable {
         emit LibMarketPlaceEvents.AuctionCancelledSuccessfully(auctionId);
     }
 
-    function claimAuction(uint256 auctionId) external {
+    function claimAuction(address interactor, uint256 auctionId) external {
         Auction storage auction = allAuctions[auctionId];
 
         require(auction.endTimestamp < block.timestamp, "Deadline not yet met");
         require(!auction.paidBuyOutBid, "Asset Already Claimed");
-        require(auction.currentBidOwner == msg.sender, "Not the last bidder");
+        require(auction.currentBidOwner == interactor, "Not the last bidder");
 
         auction.status = Status.COMPLETED;
 
         IERC721 nftCollection = IERC721(auction.assetContract);
-        nftCollection.safeTransferFrom(address(this), msg.sender, auction.tokenId);
+        nftCollection.safeTransferFrom(address(this), interactor, auction.tokenId);
     }
 
     function collectAuctionPayout(uint256 auctionId) external onlyAfterCompletedAuction(auctionId) {
@@ -504,9 +506,9 @@ contract MarkkinatMarketPlace is Ownable {
     }
 
     function getWinningBid(uint256 auctionId)
-        external
-        view
-        returns (address bidder, address currency, uint256 bidAmount)
+    external
+    view
+    returns (address bidder, address currency, uint256 bidAmount)
     {
         Auction storage auction = allAuctions[auctionId];
         return (auction.currentBidOwner, auction.currency, auction.currentBidPrice);

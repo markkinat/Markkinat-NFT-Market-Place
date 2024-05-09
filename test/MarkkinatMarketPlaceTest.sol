@@ -11,15 +11,15 @@ contract MarkkinatMarketPlaceTest is Test {
     MarkkinatMarketPlace private marketPlace;
     CollectionNFT private collectionNft;
     Token private tokenUsed;
-    address payable private A = payable(address(0xa));
-    address B = payable(address(0xb));
+    address A = address(0xa);
+    address B = address(0xb);
     address C = address(0xc);
     address D = address(0xd);
 
 
     function setUp() external {
         marketPlace = new MarkkinatMarketPlace(address(1), address(2));
-        collectionNft = new CollectionNFT(payable(address(0xd2)),"", "", "", "", A);
+        collectionNft = new CollectionNFT("", "", "", "", A);
         tokenUsed = new Token("", "");
         fundUserEth(A);
         fundUserEth(B);
@@ -46,6 +46,7 @@ contract MarkkinatMarketPlaceTest is Test {
         params.endTimestamp = uint128(block.timestamp + 30 minutes);
         params.reserved = true;
         params.tokenType = MarkkinatMarketPlace.TokenType.ERC721;
+        params.intiator = A;
         return params;
     }
 
@@ -67,6 +68,7 @@ contract MarkkinatMarketPlaceTest is Test {
         switchSigner(A);
         MarkkinatMarketPlace.ListingParameters memory params = runCreateListing();
         collectionNft.approve(address(marketPlace), 1);
+        vm.stopPrank();
         marketPlace.createListing(params);
 
         assertEq(marketPlace.totalListings(), 1);
@@ -106,7 +108,7 @@ contract MarkkinatMarketPlaceTest is Test {
 
     function testThatMarketPlaceMustBeApprovedBeforeBeforeListingCanBeCreated() external {
         MarkkinatMarketPlace.ListingParameters memory params = runCreateListing();
-        
+
         vm.expectRevert();
         marketPlace.createListing(params);
     }
@@ -115,7 +117,9 @@ contract MarkkinatMarketPlaceTest is Test {
         switchSigner(A);
         MarkkinatMarketPlace.ListingParameters memory params = runCreateListing();
         collectionNft.approve(address(marketPlace), 1);
+        vm.stopPrank();
         marketPlace.createListing(params);
+        switchSigner(A);
         marketPlace.cancelListing(0);
         MarkkinatMarketPlace.Listing memory listed = marketPlace.getListing(0);
         bool isListed = listed.status == MarkkinatMarketPlace.Status.CANCELLED;
@@ -126,6 +130,7 @@ contract MarkkinatMarketPlaceTest is Test {
         switchSigner(A);
         MarkkinatMarketPlace.ListingParameters memory params = runCreateListing();
         collectionNft.approve(address(marketPlace), 1);
+        vm.stopPrank();
         marketPlace.createListing(params);
         switchSigner(B);
         vm.expectRevert(LibMarketPlaceErrors.NotOwner.selector);
@@ -136,11 +141,13 @@ contract MarkkinatMarketPlaceTest is Test {
         switchSigner(A);
         MarkkinatMarketPlace.ListingParameters memory params = runCreateListing();
         collectionNft.approve(address(marketPlace), 1);
+        vm.stopPrank();
         marketPlace.createListing(params);
 
         params.price = 2 ether;
         params.currency = address(0xaaaa);
 
+        switchSigner(A);
         marketPlace.updateListing(0, params);
 
         MarkkinatMarketPlace.Listing memory listed = marketPlace.getListing(0);
@@ -153,8 +160,10 @@ contract MarkkinatMarketPlaceTest is Test {
         switchSigner(A);
         MarkkinatMarketPlace.ListingParameters memory params = runCreateListing();
         collectionNft.approve(address(marketPlace), 1);
+        vm.stopPrank();
         marketPlace.createListing(params);
 
+        switchSigner(A);
         marketPlace.cancelListing(0);
 
         params.price = 1.5 ether;
@@ -169,10 +178,13 @@ contract MarkkinatMarketPlaceTest is Test {
 
     function testBuyListing() external{
         switchSigner(A);
-        
+
         MarkkinatMarketPlace.ListingParameters memory params = runCreateListing();
         collectionNft.approve(address(marketPlace), 1);
         params.reserved = false;
+        
+        vm.stopPrank();
+
         marketPlace.createListing(params);
 
         assertTrue(tokenUsed.balanceOf(A) == 3 ether);
@@ -193,6 +205,7 @@ contract MarkkinatMarketPlaceTest is Test {
         MarkkinatMarketPlace.ListingParameters memory params = runCreateListing();
         collectionNft.approve(address(marketPlace), 1);
         params.reserved = false;
+        // vm.stopPrank();
 
         marketPlace.createListing(params);
 
@@ -285,7 +298,7 @@ contract MarkkinatMarketPlaceTest is Test {
         vm.warp(3 days);
 
         vm.expectRevert(LibMarketPlaceErrors.AuctionEnded.selector);
-        marketPlace.bidInAuction(0, 1 ether);
+        marketPlace.bidInAuction(B, 0, 1 ether);
     }
 
     function testBidAuction() external {
@@ -296,7 +309,8 @@ contract MarkkinatMarketPlaceTest is Test {
 
         switchSigner(C);
         tokenUsed.approve(address(marketPlace), 2 ether);
-        marketPlace.bidInAuction(0, 2 ether);
+//        vm.stopPrank();
+        marketPlace.bidInAuction(C, 0, 2 ether);
 
         MarkkinatMarketPlace.Auction memory auction = marketPlace.getAuction(0);
 
@@ -308,9 +322,9 @@ contract MarkkinatMarketPlaceTest is Test {
         switchSigner(A);
         marketPlace.collectAuctionPayout(0);
 
-        switchSigner(C);
+//        switchSigner(C);
         vm.expectRevert("Asset Already Claimed");
-        marketPlace.claimAuction(0);
+        marketPlace.claimAuction(C, 0);
 
         assertEq(collectionNft.ownerOf(1), C);
         assertTrue(isCompleted);
@@ -321,23 +335,26 @@ contract MarkkinatMarketPlaceTest is Test {
         switchSigner(A);
         MarkkinatMarketPlace.AuctionParameters memory params = runCreateAuction();
         collectionNft.approve(address(marketPlace), 1);
+
         marketPlace.createAuction(params);
 
         switchSigner(C);
         tokenUsed.approve(address(marketPlace), 1.3 ether);
-        marketPlace.bidInAuction(0, 1.3 ether);
+//        vm.stopPrank();
+        marketPlace.bidInAuction(C, 0, 1.3 ether);
 
         uint day = 1 days + 23 hours + 59 minutes + 59 seconds;
         vm.warp(day);
 
         switchSigner(B);
         tokenUsed.approve(address(marketPlace), 1.4 ether);
-        marketPlace.bidInAuction(0, 1.4 ether);
+//        vm.stopPrank();
+        marketPlace.bidInAuction(B, 0, 1.4 ether);
 
         vm.warp(1 days + 23 hours + 61 minutes);
-        switchSigner(B);
-        marketPlace.claimAuction(0);
-   
+//        switchSigner(B);
+        marketPlace.claimAuction(B, 0);
+
         switchSigner(A);
         marketPlace.collectAuctionPayout(0);
 
